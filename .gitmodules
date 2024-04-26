@@ -1,0 +1,3 @@
+[submodule "puan-db-proto"]
+	path = puan-db-proto
+	url = https://github.com/ourstudio-se/puan-db-proto

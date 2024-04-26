@@ -206,3 +206,5 @@ secret.*.yaml
 *.pkl
 
 test_client.py
+puan/
+*.puan

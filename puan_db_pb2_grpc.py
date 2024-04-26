@@ -14,6 +14,11 @@ class ModelingServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.Get = channel.unary_unary(
+                '/ModelingService/Get',
+                request_serializer=puan__db__pb2.IDRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.Bound.FromString,
+                )
         self.GetMetaInformation = channel.unary_unary(
                 '/ModelingService/GetMetaInformation',
                 request_serializer=puan__db__pb2.Empty.SerializeToString,
@@ -39,6 +44,11 @@ class ModelingServiceStub(object):
                 request_serializer=puan__db__pb2.Empty.SerializeToString,
                 response_deserializer=puan__db__pb2.Primitives.FromString,
                 )
+        self.GetPrimitiveIds = channel.unary_unary(
+                '/ModelingService/GetPrimitiveIds',
+                request_serializer=puan__db__pb2.Empty.SerializeToString,
+                response_deserializer=puan__db__pb2.IDsResponse.FromString,
+                )
         self.GetComposite = channel.unary_unary(
                 '/ModelingService/GetComposite',
                 request_serializer=puan__db__pb2.IDRequest.SerializeToString,
@@ -49,6 +59,16 @@ class ModelingServiceStub(object):
                 request_serializer=puan__db__pb2.Empty.SerializeToString,
                 response_deserializer=puan__db__pb2.Composites.FromString,
                 )
+        self.GetCompositeIds = channel.unary_unary(
+                '/ModelingService/GetCompositeIds',
+                request_serializer=puan__db__pb2.Empty.SerializeToString,
+                response_deserializer=puan__db__pb2.IDsResponse.FromString,
+                )
+        self.Delete = channel.unary_unary(
+                '/ModelingService/Delete',
+                request_serializer=puan__db__pb2.IDRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.BooleanSetResponse.FromString,
+                )
         self.SetPrimitive = channel.unary_unary(
                 '/ModelingService/SetPrimitive',
                 request_serializer=puan__db__pb2.Primitive.SerializeToString,
@@ -57,7 +77,7 @@ class ModelingServiceStub(object):
         self.SetPrimitives = channel.unary_unary(
                 '/ModelingService/SetPrimitives',
                 request_serializer=puan__db__pb2.SetPrimitivesRequest.SerializeToString,
-                response_deserializer=puan__db__pb2.References.FromString,
+                response_deserializer=puan__db__pb2.IDsResponse.FromString,
                 )
         self.SetAtLeast = channel.unary_unary(
                 '/ModelingService/SetAtLeast',
@@ -89,6 +109,11 @@ class ModelingServiceStub(object):
                 request_serializer=puan__db__pb2.Not.SerializeToString,
                 response_deserializer=puan__db__pb2.SetResponse.FromString,
                 )
+        self.SetImply = channel.unary_unary(
+                '/ModelingService/SetImply',
+                request_serializer=puan__db__pb2.Imply.SerializeToString,
+                response_deserializer=puan__db__pb2.SetResponse.FromString,
+                )
         self.PropagateUpstream = channel.unary_unary(
                 '/ModelingService/PropagateUpstream',
                 request_serializer=puan__db__pb2.Interpretation.SerializeToString,
@@ -114,9 +139,15 @@ class ModelingServiceStub(object):
 class ModelingServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def GetMetaInformation(self, request, context):
+    def Get(self, request, context):
         """Model information operations
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetMetaInformation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -145,6 +176,12 @@ class ModelingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetPrimitiveIds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetComposite(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -157,9 +194,21 @@ class ModelingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SetPrimitive(self, request, context):
+    def GetCompositeIds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Delete(self, request, context):
         """Model modification operations
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetPrimitive(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -206,6 +255,12 @@ class ModelingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetImply(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def PropagateUpstream(self, request, context):
         """Model computation operations
         """
@@ -234,6 +289,11 @@ class ModelingServiceServicer(object):
 
 def add_ModelingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'Get': grpc.unary_unary_rpc_method_handler(
+                    servicer.Get,
+                    request_deserializer=puan__db__pb2.IDRequest.FromString,
+                    response_serializer=puan__db__pb2.Bound.SerializeToString,
+            ),
             'GetMetaInformation': grpc.unary_unary_rpc_method_handler(
                     servicer.GetMetaInformation,
                     request_deserializer=puan__db__pb2.Empty.FromString,
@@ -259,6 +319,11 @@ def add_ModelingServiceServicer_to_server(servicer, server):
                     request_deserializer=puan__db__pb2.Empty.FromString,
                     response_serializer=puan__db__pb2.Primitives.SerializeToString,
             ),
+            'GetPrimitiveIds': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPrimitiveIds,
+                    request_deserializer=puan__db__pb2.Empty.FromString,
+                    response_serializer=puan__db__pb2.IDsResponse.SerializeToString,
+            ),
             'GetComposite': grpc.unary_unary_rpc_method_handler(
                     servicer.GetComposite,
                     request_deserializer=puan__db__pb2.IDRequest.FromString,
@@ -269,6 +334,16 @@ def add_ModelingServiceServicer_to_server(servicer, server):
                     request_deserializer=puan__db__pb2.Empty.FromString,
                     response_serializer=puan__db__pb2.Composites.SerializeToString,
             ),
+            'GetCompositeIds': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetCompositeIds,
+                    request_deserializer=puan__db__pb2.Empty.FromString,
+                    response_serializer=puan__db__pb2.IDsResponse.SerializeToString,
+            ),
+            'Delete': grpc.unary_unary_rpc_method_handler(
+                    servicer.Delete,
+                    request_deserializer=puan__db__pb2.IDRequest.FromString,
+                    response_serializer=puan__db__pb2.BooleanSetResponse.SerializeToString,
+            ),
             'SetPrimitive': grpc.unary_unary_rpc_method_handler(
                     servicer.SetPrimitive,
                     request_deserializer=puan__db__pb2.Primitive.FromString,
@@ -277,7 +352,7 @@ def add_ModelingServiceServicer_to_server(servicer, server):
             'SetPrimitives': grpc.unary_unary_rpc_method_handler(
                     servicer.SetPrimitives,
                     request_deserializer=puan__db__pb2.SetPrimitivesRequest.FromString,
-                    response_serializer=puan__db__pb2.References.SerializeToString,
+                    response_serializer=puan__db__pb2.IDsResponse.SerializeToString,
             ),
             'SetAtLeast': grpc.unary_unary_rpc_method_handler(
                     servicer.SetAtLeast,
@@ -309,6 +384,11 @@ def add_ModelingServiceServicer_to_server(servicer, server):
                     request_deserializer=puan__db__pb2.Not.FromString,
                     response_serializer=puan__db__pb2.SetResponse.SerializeToString,
             ),
+            'SetImply': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetImply,
+                    request_deserializer=puan__db__pb2.Imply.FromString,
+                    response_serializer=puan__db__pb2.SetResponse.SerializeToString,
+            ),
             'PropagateUpstream': grpc.unary_unary_rpc_method_handler(
                     servicer.PropagateUpstream,
                     request_deserializer=puan__db__pb2.Interpretation.FromString,
@@ -338,6 +418,23 @@ def add_ModelingServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class ModelingService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def Get(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/Get',
+            puan__db__pb2.IDRequest.SerializeToString,
+            puan__db__pb2.Bound.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def GetMetaInformation(request,
@@ -425,6 +522,23 @@ class ModelingService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def GetPrimitiveIds(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/GetPrimitiveIds',
+            puan__db__pb2.Empty.SerializeToString,
+            puan__db__pb2.IDsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def GetComposite(request,
             target,
             options=(),
@@ -459,6 +573,40 @@ class ModelingService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def GetCompositeIds(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/GetCompositeIds',
+            puan__db__pb2.Empty.SerializeToString,
+            puan__db__pb2.IDsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Delete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/Delete',
+            puan__db__pb2.IDRequest.SerializeToString,
+            puan__db__pb2.BooleanSetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def SetPrimitive(request,
             target,
             options=(),
@@ -488,7 +636,7 @@ class ModelingService(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/SetPrimitives',
             puan__db__pb2.SetPrimitivesRequest.SerializeToString,
-            puan__db__pb2.References.FromString,
+            puan__db__pb2.IDsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -590,6 +738,23 @@ class ModelingService(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/SetNot',
             puan__db__pb2.Not.SerializeToString,
+            puan__db__pb2.SetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetImply(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/SetImply',
+            puan__db__pb2.Imply.SerializeToString,
             puan__db__pb2.SetResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

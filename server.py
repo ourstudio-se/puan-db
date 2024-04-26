@@ -81,7 +81,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
     @staticmethod
     def dict_objective(d: Dict[str, int]) -> puan_db_pb2.Objective:
         return puan_db_pb2.Objective(
-            fixed_variables=list(
+            variables=list(
                 starmap(
                     lambda k,v: puan_db_pb2.FixedVariable(
                         id=k,
@@ -97,75 +97,10 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return dict(
             map(
                 lambda x: (x.id, x.value),
-                objective.fixed_variables
+                objective.variables
             )
         )
     
-    def unravel_proposition(self, model: PLDAG, proposition: puan_db_pb2.Proposition) -> str:
-        if proposition.AT_LEAST:
-            return model.set_atleast(
-                self.unravel_references(model, proposition.AT_LEAST.references),
-                proposition.AT_LEAST.value,
-                proposition.AT_LEAST.alias,
-            )
-        elif proposition.AT_MOST:
-            return model.set_atmost(
-                self.unravel_references(model, proposition.AT_MOST.references),
-                proposition.AT_MOST.value,
-                proposition.AT_MOST.alias,
-            )
-        elif proposition.AND:
-            return model.set_and(
-                self.unravel_references(model, proposition.AND.references),
-                proposition.AND.alias,
-            )
-        elif proposition.OR:
-            return model.set_or(
-                self.unravel_references(model, proposition.OR.references),
-                proposition.OR.alias,
-            )
-        elif proposition.XOR:
-            return model.set_xor(
-                self.unravel_references(model, proposition.XOR.references),
-                proposition.XOR.alias,
-            )
-        elif proposition.NOT:
-            return model.set_not(
-                self.unravel_references(model, proposition.NOT.reference),
-                proposition.NOT.alias,
-            )
-        elif proposition.IMPLY:
-            return model.set_imply(
-                *self.unravel_references(model, [
-                    proposition.IMPLY.condition, 
-                    proposition.IMPLY.consequence,
-                ]),
-                proposition.IMPLY.alias,
-            )
-    
-    def unravel_references(self, model: PLDAG, references: List[puan_db_pb2.Reference]) -> List[str]:
-        return list(
-            chain(
-                map(
-                    lambda x: x.id,
-                    filter(
-                        lambda x: x.id,
-                        references,
-                    )
-                ),
-                map(
-                    lambda x: self.unravel_proposition(
-                        model, 
-                        x.proposition,
-                    ),
-                    filter(
-                        lambda x: x.proposition,
-                        references,
-                    )
-                )
-            )
-        )
-
     def SetPrimitive(self, request: puan_db_pb2.Primitive, context):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
@@ -174,7 +109,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
 
     def SetPrimitives(self, request: puan_db_pb2.Primitive, context):
-        return puan_db_pb2.References(
+        return puan_db_pb2.IDsResponse(
             ids=self.model_handler.modify(
                 lambda model: model.set_primitives(request.ids, PuanDB.bound_complex(request.bound))
             )
@@ -184,7 +119,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_atleast(
-                    self.unravel_references(model, request.references), 
+                    request.references, 
                     request.value, 
                     request.alias,
                 )
@@ -195,7 +130,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_atmost(
-                    self.unravel_references(model, request.references), 
+                    request.references, 
                     request.value, 
                     request.alias,
                 )
@@ -206,7 +141,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_and(
-                    self.unravel_references(model, request.references), 
+                    request.references, 
                     request.alias,
                 )
             )
@@ -216,7 +151,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_or(
-                    self.unravel_references(model, request.references), 
+                    request.references, 
                     request.alias,
                 )
             )
@@ -226,7 +161,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_xor(
-                    self.unravel_references(model, request.references), 
+                    request.references, 
                     request.alias,
                 )
             )
@@ -236,7 +171,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_not(
-                    self.unravel_references(model, request.references), 
+                    request.references, 
                     request.alias,
                 )
             )
@@ -246,7 +181,8 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=self.model_handler.modify(
                 lambda model: model.set_imply(
-                    *self.unravel_references(model, [request.condition, request.consequence]), 
+                    request.condition, 
+                    request.consequence, 
                     request.alias,
                 )
             )
@@ -269,7 +205,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
     def PropagateBidirectional(self, request: puan_db_pb2.Interpretation, context):
         return PuanDB.dict_interpretation(
             self.model_handler.compute(
-                lambda model: model.propagate_bidirectional(PuanDB.interpretation_dict(request))
+                lambda model: model.propagate_bistream(PuanDB.interpretation_dict(request))
             )
         )
     
@@ -278,21 +214,11 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             return puan_db_pb2.SolveResponse(
                 solutions=list(
                     map(
-                        lambda solution: puan_db_pb2.Solution(
-                            fixed_variables=list(
-                                starmap(
-                                    lambda k,v: puan_db_pb2.FixedVariable(
-                                        id=k,
-                                        value=int(v.real),
-                                    ),
-                                    solution.items()
-                                )
-                            )
-                        ),
+                        PuanDB.dict_interpretation,
                         self.model_handler.compute(
                             lambda model: model.solve(
                                 list(map(PuanDB.objective_dict, request.objectives)), 
-                                dict(map(lambda x: (x.id, x.value), request.fix)), 
+                                PuanDB.interpretation_dict(request.fix), 
                                 Solver[puan_db_pb2.Solver.Name(request.solver)],
                             )
                         )
@@ -313,6 +239,20 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
                 error="Something went wrong"
             )
 
+    def Delete(self, request, context):
+        return puan_db_pb2.BooleanSetResponse(
+            success=self.model_handler.modify(
+                lambda model: model.delete(request.id)
+            )
+        )
+    
+    def Get(self, request, context):
+        return PuanDB.complex_bound(
+            self.model_handler.compute(
+                lambda model: model.get(request.id)
+            )[0]
+        )
+    
     def GetMetaInformation(self, request, context):
         return puan_db_pb2.MetaInformationResponse(
             nrows=self.model_handler.compute(lambda model: model._amat.shape[0]),
@@ -360,6 +300,11 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
         )
     
+    def GetPrimitiveIds(self, request, context):
+        return puan_db_pb2.IDsResponse(
+            ids=self.model_handler.compute(lambda model: model.primitives.tolist())
+        )
+    
     def GetComposite(self, request, context):
         return puan_db_pb2.Composite(
             **self.model_handler.compute(
@@ -375,21 +320,27 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
     
     def GetComposites(self, request, context):
         model = self.model_handler.load_model()
-        return list(
-            map(
-                lambda composite_id: puan_db_pb2.Composite(
-                    **{
-                        "id": composite_id,
-                        "references": model.dependencies(composite_id),
-                        "bias": int(model._bvec[model._col(composite_id)]),
-                        "negated": bool(model._nvec[composite_id]),
-                        "alias": model.id_to_alias(composite_id),
-                    }
-                ),
-                model.composites,
+        return puan_db_pb2.Composites(
+            composites=list(
+                map(
+                    lambda composite_id: puan_db_pb2.Composite(
+                        **{
+                            "id": composite_id,
+                            "references": sorted(model.dependencies(composite_id)),
+                            "bias": int(model._bvec[model._row(composite_id)].real),
+                            "negated": bool(model._nvec[model._row(composite_id)]),
+                            "alias": model.id_to_alias(composite_id),
+                        }
+                    ),
+                    model.composites.tolist(),
+                )
             )
         )
 
+    def GetCompositeIds(self, request, context):
+        return puan_db_pb2.IDsResponse(
+            ids=self.model_handler.compute(lambda model: model.composites.tolist())
+        )
 
 def serve():
     port = os.getenv('APP_PORT', '50051')
