@@ -1,4 +1,4 @@
 grpcio==1.62.2
 grpcio-tools==1.62.2
-pldag==0.7.7
+pldag==0.8.2
 npycvx==0.0.2

@@ -114,13 +114,18 @@ class ModelingServiceStub(object):
                 request_serializer=puan__db__pb2.Imply.SerializeToString,
                 response_deserializer=puan__db__pb2.SetResponse.FromString,
                 )
-        self.PropagateUpstream = channel.unary_unary(
-                '/ModelingService/PropagateUpstream',
+        self.SetEqual = channel.unary_unary(
+                '/ModelingService/SetEqual',
+                request_serializer=puan__db__pb2.Equivalent.SerializeToString,
+                response_deserializer=puan__db__pb2.SetResponse.FromString,
+                )
+        self.Propagate = channel.unary_unary(
+                '/ModelingService/Propagate',
                 request_serializer=puan__db__pb2.Interpretation.SerializeToString,
                 response_deserializer=puan__db__pb2.Interpretation.FromString,
                 )
-        self.PropagateDownstream = channel.unary_unary(
-                '/ModelingService/PropagateDownstream',
+        self.PropagateUpstream = channel.unary_unary(
+                '/ModelingService/PropagateUpstream',
                 request_serializer=puan__db__pb2.Interpretation.SerializeToString,
                 response_deserializer=puan__db__pb2.Interpretation.FromString,
                 )
@@ -261,14 +266,20 @@ class ModelingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def PropagateUpstream(self, request, context):
+    def SetEqual(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Propagate(self, request, context):
         """Model computation operations
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def PropagateDownstream(self, request, context):
+    def PropagateUpstream(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -389,13 +400,18 @@ def add_ModelingServiceServicer_to_server(servicer, server):
                     request_deserializer=puan__db__pb2.Imply.FromString,
                     response_serializer=puan__db__pb2.SetResponse.SerializeToString,
             ),
-            'PropagateUpstream': grpc.unary_unary_rpc_method_handler(
-                    servicer.PropagateUpstream,
+            'SetEqual': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetEqual,
+                    request_deserializer=puan__db__pb2.Equivalent.FromString,
+                    response_serializer=puan__db__pb2.SetResponse.SerializeToString,
+            ),
+            'Propagate': grpc.unary_unary_rpc_method_handler(
+                    servicer.Propagate,
                     request_deserializer=puan__db__pb2.Interpretation.FromString,
                     response_serializer=puan__db__pb2.Interpretation.SerializeToString,
             ),
-            'PropagateDownstream': grpc.unary_unary_rpc_method_handler(
-                    servicer.PropagateDownstream,
+            'PropagateUpstream': grpc.unary_unary_rpc_method_handler(
+                    servicer.PropagateUpstream,
                     request_deserializer=puan__db__pb2.Interpretation.FromString,
                     response_serializer=puan__db__pb2.Interpretation.SerializeToString,
             ),
@@ -760,6 +776,40 @@ class ModelingService(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def SetEqual(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/SetEqual',
+            puan__db__pb2.Equivalent.SerializeToString,
+            puan__db__pb2.SetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Propagate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/Propagate',
+            puan__db__pb2.Interpretation.SerializeToString,
+            puan__db__pb2.Interpretation.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def PropagateUpstream(request,
             target,
             options=(),
@@ -771,23 +821,6 @@ class ModelingService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/PropagateUpstream',
-            puan__db__pb2.Interpretation.SerializeToString,
-            puan__db__pb2.Interpretation.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def PropagateDownstream(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/ModelingService/PropagateDownstream',
             puan__db__pb2.Interpretation.SerializeToString,
             puan__db__pb2.Interpretation.FromString,
             options, channel_credentials,

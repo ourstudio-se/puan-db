@@ -14,15 +14,15 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rpuan_db.proto\"%\n\x05\x42ound\x12\r\n\x05lower\x18\x01 \x01(\x03\x12\r\n\x05upper\x18\x02 \x01(\x03\"=\n\tPrimitive\x12\n\n\x02id\x18\x01 \x01(\t\x12\x1a\n\x05\x62ound\x18\x02 \x01(\x0b\x32\x06.BoundH\x00\x88\x01\x01\x42\x08\n\x06_bound\"Y\n\tComposite\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\nreferences\x18\x02 \x03(\t\x12\x0c\n\x04\x62ias\x18\x03 \x01(\x03\x12\x0f\n\x07negated\x18\x04 \x01(\x08\x12\r\n\x05\x61lias\x18\x05 \x03(\t\"I\n\x14SetPrimitivesRequest\x12\x0b\n\x03ids\x18\x01 \x03(\t\x12\x1a\n\x05\x62ound\x18\x02 \x01(\x0b\x32\x06.BoundH\x00\x88\x01\x01\x42\x08\n\x06_bound\"\x19\n\nReferences\x12\x0b\n\x03ids\x18\x01 \x03(\t\"J\n\x07\x41tLeast\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\r\n\x05value\x18\x02 \x01(\x03\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"I\n\x06\x41tMost\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\r\n\x05value\x18\x02 \x01(\x03\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"7\n\x03\x41nd\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"6\n\x02Or\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"7\n\x03Xor\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"7\n\x03Not\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"M\n\x05Imply\x12\x11\n\tcondition\x18\x01 \x01(\t\x12\x13\n\x0b\x63onsequence\x18\x02 \x01(\t\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"-\n\x08Variable\x12\n\n\x02id\x18\x01 \x01(\t\x12\x15\n\x05\x62ound\x18\x02 \x01(\x0b\x32\x06.Bound\"*\n\rFixedVariable\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x03\".\n\x0eInterpretation\x12\x1c\n\tvariables\x18\x01 \x03(\x0b\x32\t.Variable\".\n\tObjective\x12!\n\tvariables\x18\x01 \x03(\x0b\x32\x0e.FixedVariable\"e\n\x0cSolveRequest\x12\x1e\n\nobjectives\x18\x01 \x03(\x0b\x32\n.Objective\x12\x1c\n\x03\x66ix\x18\x02 \x01(\x0b\x32\x0f.Interpretation\x12\x17\n\x06solver\x18\x03 \x01(\x0e\x32\x07.Solver\"Q\n\rSolveResponse\x12\"\n\tsolutions\x18\x01 \x03(\x0b\x32\x0f.Interpretation\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_error\"7\n\x0bSetResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_error\"C\n\x12\x42ooleanSetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_error\"\x17\n\tIDRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\x18\n\nIDResponse\x12\n\n\x02id\x18\x01 \x01(\t\"\x1a\n\x0bIDsResponse\x12\x0b\n\x03ids\x18\x01 \x03(\t\"\x1d\n\x0c\x41liasRequest\x12\r\n\x05\x61lias\x18\x01 \x01(\t\"G\n\x05Model\x12\x1e\n\nprimitives\x18\x01 \x03(\x0b\x32\n.Primitive\x12\x1e\n\ncomposites\x18\x02 \x03(\x0b\x32\n.Composite\"\x07\n\x05\x45mpty\",\n\nPrimitives\x12\x1e\n\nprimitives\x18\x01 \x03(\x0b\x32\n.Primitive\",\n\nComposites\x12\x1e\n\ncomposites\x18\x01 \x03(\x0b\x32\n.Composite\"\x83\x01\n\x17MetaInformationResponse\x12\r\n\x05nrows\x18\x01 \x01(\x04\x12\r\n\x05ncols\x18\x02 \x01(\x04\x12\x16\n\tncombs_lb\x18\x03 \x01(\x04H\x00\x88\x01\x01\x12\x16\n\tncombs_ub\x18\x04 \x01(\x04H\x01\x88\x01\x01\x42\x0c\n\n_ncombs_lbB\x0c\n\n_ncombs_ub*\x12\n\x06Solver\x12\x08\n\x04GLPK\x10\x00\x32\x9e\x08\n\x0fModelingService\x12\x1b\n\x03Get\x12\n.IDRequest\x1a\x06.Bound\"\x00\x12\x38\n\x12GetMetaInformation\x12\x06.Empty\x1a\x18.MetaInformationResponse\"\x00\x12-\n\x0fGetDependencies\x12\n.IDRequest\x1a\x0c.IDsResponse\"\x00\x12.\n\x0eGetIDFromAlias\x12\r.AliasRequest\x1a\x0b.IDResponse\"\x00\x12(\n\x0cGetPrimitive\x12\n.IDRequest\x1a\n.Primitive\"\x00\x12&\n\rGetPrimitives\x12\x06.Empty\x1a\x0b.Primitives\"\x00\x12)\n\x0fGetPrimitiveIds\x12\x06.Empty\x1a\x0c.IDsResponse\"\x00\x12(\n\x0cGetComposite\x12\n.IDRequest\x1a\n.Composite\"\x00\x12&\n\rGetComposites\x12\x06.Empty\x1a\x0b.Composites\"\x00\x12)\n\x0fGetCompositeIds\x12\x06.Empty\x1a\x0c.IDsResponse\"\x00\x12+\n\x06\x44\x65lete\x12\n.IDRequest\x1a\x13.BooleanSetResponse\"\x00\x12*\n\x0cSetPrimitive\x12\n.Primitive\x1a\x0c.SetResponse\"\x00\x12\x36\n\rSetPrimitives\x12\x15.SetPrimitivesRequest\x1a\x0c.IDsResponse\"\x00\x12&\n\nSetAtLeast\x12\x08.AtLeast\x1a\x0c.SetResponse\"\x00\x12$\n\tSetAtMost\x12\x07.AtMost\x1a\x0c.SetResponse\"\x00\x12\x1e\n\x06SetAnd\x12\x04.And\x1a\x0c.SetResponse\"\x00\x12\x1c\n\x05SetOr\x12\x03.Or\x1a\x0c.SetResponse\"\x00\x12\x1e\n\x06SetXor\x12\x04.Xor\x1a\x0c.SetResponse\"\x00\x12\x1e\n\x06SetNot\x12\x04.Not\x1a\x0c.SetResponse\"\x00\x12\"\n\x08SetImply\x12\x06.Imply\x1a\x0c.SetResponse\"\x00\x12\x37\n\x11PropagateUpstream\x12\x0f.Interpretation\x1a\x0f.Interpretation\"\x00\x12\x39\n\x13PropagateDownstream\x12\x0f.Interpretation\x1a\x0f.Interpretation\"\x00\x12<\n\x16PropagateBidirectional\x12\x0f.Interpretation\x1a\x0f.Interpretation\"\x00\x12(\n\x05Solve\x12\r.SolveRequest\x1a\x0e.SolveResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rpuan_db.proto\"%\n\x05\x42ound\x12\r\n\x05lower\x18\x01 \x01(\x03\x12\r\n\x05upper\x18\x02 \x01(\x03\"=\n\tPrimitive\x12\n\n\x02id\x18\x01 \x01(\t\x12\x1a\n\x05\x62ound\x18\x02 \x01(\x0b\x32\x06.BoundH\x00\x88\x01\x01\x42\x08\n\x06_bound\"Y\n\tComposite\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\nreferences\x18\x02 \x03(\t\x12\x0c\n\x04\x62ias\x18\x03 \x01(\x03\x12\x0f\n\x07negated\x18\x04 \x01(\x08\x12\r\n\x05\x61lias\x18\x05 \x03(\t\"I\n\x14SetPrimitivesRequest\x12\x0b\n\x03ids\x18\x01 \x03(\t\x12\x1a\n\x05\x62ound\x18\x02 \x01(\x0b\x32\x06.BoundH\x00\x88\x01\x01\x42\x08\n\x06_bound\"\x19\n\nReferences\x12\x0b\n\x03ids\x18\x01 \x03(\t\"J\n\x07\x41tLeast\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\r\n\x05value\x18\x02 \x01(\x03\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"I\n\x06\x41tMost\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\r\n\x05value\x18\x02 \x01(\x03\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"7\n\x03\x41nd\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"6\n\x02Or\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"7\n\x03Xor\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"7\n\x03Not\x12\x12\n\nreferences\x18\x01 \x03(\t\x12\x12\n\x05\x61lias\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"M\n\x05Imply\x12\x11\n\tcondition\x18\x01 \x01(\t\x12\x13\n\x0b\x63onsequence\x18\x02 \x01(\t\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"D\n\nEquivalent\x12\x0b\n\x03lhs\x18\x01 \x01(\t\x12\x0b\n\x03rhs\x18\x02 \x01(\t\x12\x12\n\x05\x61lias\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_alias\"-\n\x08Variable\x12\n\n\x02id\x18\x01 \x01(\t\x12\x15\n\x05\x62ound\x18\x02 \x01(\x0b\x32\x06.Bound\"*\n\rFixedVariable\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x03\".\n\x0eInterpretation\x12\x1c\n\tvariables\x18\x01 \x03(\x0b\x32\t.Variable\".\n\tObjective\x12!\n\tvariables\x18\x01 \x03(\x0b\x32\x0e.FixedVariable\"h\n\x0cSolveRequest\x12\x1e\n\nobjectives\x18\x01 \x03(\x0b\x32\n.Objective\x12\x1f\n\x06\x61ssume\x18\x02 \x01(\x0b\x32\x0f.Interpretation\x12\x17\n\x06solver\x18\x03 \x01(\x0e\x32\x07.Solver\"Q\n\rSolveResponse\x12\"\n\tsolutions\x18\x01 \x03(\x0b\x32\x0f.Interpretation\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_error\"7\n\x0bSetResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_error\"C\n\x12\x42ooleanSetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x12\n\x05\x65rror\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x08\n\x06_error\"\x17\n\tIDRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\x18\n\nIDResponse\x12\n\n\x02id\x18\x01 \x01(\t\"\x1a\n\x0bIDsResponse\x12\x0b\n\x03ids\x18\x01 \x03(\t\"\x1d\n\x0c\x41liasRequest\x12\r\n\x05\x61lias\x18\x01 \x01(\t\"G\n\x05Model\x12\x1e\n\nprimitives\x18\x01 \x03(\x0b\x32\n.Primitive\x12\x1e\n\ncomposites\x18\x02 \x03(\x0b\x32\n.Composite\"\x07\n\x05\x45mpty\",\n\nPrimitives\x12\x1e\n\nprimitives\x18\x01 \x03(\x0b\x32\n.Primitive\",\n\nComposites\x12\x1e\n\ncomposites\x18\x01 \x03(\x0b\x32\n.Composite\"\x83\x01\n\x17MetaInformationResponse\x12\r\n\x05nrows\x18\x01 \x01(\x04\x12\r\n\x05ncols\x18\x02 \x01(\x04\x12\x16\n\tncombs_lb\x18\x03 \x01(\x04H\x00\x88\x01\x01\x12\x16\n\tncombs_ub\x18\x04 \x01(\x04H\x01\x88\x01\x01\x42\x0c\n\n_ncombs_lbB\x0c\n\n_ncombs_ub*\x12\n\x06Solver\x12\x08\n\x04GLPK\x10\x00\x32\xbd\x08\n\x0fModelingService\x12\x1b\n\x03Get\x12\n.IDRequest\x1a\x06.Bound\"\x00\x12\x38\n\x12GetMetaInformation\x12\x06.Empty\x1a\x18.MetaInformationResponse\"\x00\x12-\n\x0fGetDependencies\x12\n.IDRequest\x1a\x0c.IDsResponse\"\x00\x12.\n\x0eGetIDFromAlias\x12\r.AliasRequest\x1a\x0b.IDResponse\"\x00\x12(\n\x0cGetPrimitive\x12\n.IDRequest\x1a\n.Primitive\"\x00\x12&\n\rGetPrimitives\x12\x06.Empty\x1a\x0b.Primitives\"\x00\x12)\n\x0fGetPrimitiveIds\x12\x06.Empty\x1a\x0c.IDsResponse\"\x00\x12(\n\x0cGetComposite\x12\n.IDRequest\x1a\n.Composite\"\x00\x12&\n\rGetComposites\x12\x06.Empty\x1a\x0b.Composites\"\x00\x12)\n\x0fGetCompositeIds\x12\x06.Empty\x1a\x0c.IDsResponse\"\x00\x12+\n\x06\x44\x65lete\x12\n.IDRequest\x1a\x13.BooleanSetResponse\"\x00\x12*\n\x0cSetPrimitive\x12\n.Primitive\x1a\x0c.SetResponse\"\x00\x12\x36\n\rSetPrimitives\x12\x15.SetPrimitivesRequest\x1a\x0c.IDsResponse\"\x00\x12&\n\nSetAtLeast\x12\x08.AtLeast\x1a\x0c.SetResponse\"\x00\x12$\n\tSetAtMost\x12\x07.AtMost\x1a\x0c.SetResponse\"\x00\x12\x1e\n\x06SetAnd\x12\x04.And\x1a\x0c.SetResponse\"\x00\x12\x1c\n\x05SetOr\x12\x03.Or\x1a\x0c.SetResponse\"\x00\x12\x1e\n\x06SetXor\x12\x04.Xor\x1a\x0c.SetResponse\"\x00\x12\x1e\n\x06SetNot\x12\x04.Not\x1a\x0c.SetResponse\"\x00\x12\"\n\x08SetImply\x12\x06.Imply\x1a\x0c.SetResponse\"\x00\x12\'\n\x08SetEqual\x12\x0b.Equivalent\x1a\x0c.SetResponse\"\x00\x12/\n\tPropagate\x12\x0f.Interpretation\x1a\x0f.Interpretation\"\x00\x12\x37\n\x11PropagateUpstream\x12\x0f.Interpretation\x1a\x0f.Interpretation\"\x00\x12<\n\x16PropagateBidirectional\x12\x0f.Interpretation\x1a\x0f.Interpretation\"\x00\x12(\n\x05Solve\x12\r.SolveRequest\x1a\x0e.SolveResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'puan_db_pb2', _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
-  _globals['_SOLVER']._serialized_start=1686
-  _globals['_SOLVER']._serialized_end=1704
+  _globals['_SOLVER']._serialized_start=1759
+  _globals['_SOLVER']._serialized_end=1777
   _globals['_BOUND']._serialized_start=17
   _globals['_BOUND']._serialized_end=54
   _globals['_PRIMITIVE']._serialized_start=56
@@ -47,40 +47,42 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_NOT']._serialized_end=688
   _globals['_IMPLY']._serialized_start=690
   _globals['_IMPLY']._serialized_end=767
-  _globals['_VARIABLE']._serialized_start=769
-  _globals['_VARIABLE']._serialized_end=814
-  _globals['_FIXEDVARIABLE']._serialized_start=816
-  _globals['_FIXEDVARIABLE']._serialized_end=858
-  _globals['_INTERPRETATION']._serialized_start=860
-  _globals['_INTERPRETATION']._serialized_end=906
-  _globals['_OBJECTIVE']._serialized_start=908
-  _globals['_OBJECTIVE']._serialized_end=954
-  _globals['_SOLVEREQUEST']._serialized_start=956
-  _globals['_SOLVEREQUEST']._serialized_end=1057
-  _globals['_SOLVERESPONSE']._serialized_start=1059
-  _globals['_SOLVERESPONSE']._serialized_end=1140
-  _globals['_SETRESPONSE']._serialized_start=1142
-  _globals['_SETRESPONSE']._serialized_end=1197
-  _globals['_BOOLEANSETRESPONSE']._serialized_start=1199
-  _globals['_BOOLEANSETRESPONSE']._serialized_end=1266
-  _globals['_IDREQUEST']._serialized_start=1268
-  _globals['_IDREQUEST']._serialized_end=1291
-  _globals['_IDRESPONSE']._serialized_start=1293
-  _globals['_IDRESPONSE']._serialized_end=1317
-  _globals['_IDSRESPONSE']._serialized_start=1319
-  _globals['_IDSRESPONSE']._serialized_end=1345
-  _globals['_ALIASREQUEST']._serialized_start=1347
-  _globals['_ALIASREQUEST']._serialized_end=1376
-  _globals['_MODEL']._serialized_start=1378
-  _globals['_MODEL']._serialized_end=1449
-  _globals['_EMPTY']._serialized_start=1451
-  _globals['_EMPTY']._serialized_end=1458
-  _globals['_PRIMITIVES']._serialized_start=1460
-  _globals['_PRIMITIVES']._serialized_end=1504
-  _globals['_COMPOSITES']._serialized_start=1506
-  _globals['_COMPOSITES']._serialized_end=1550
-  _globals['_METAINFORMATIONRESPONSE']._serialized_start=1553
-  _globals['_METAINFORMATIONRESPONSE']._serialized_end=1684
-  _globals['_MODELINGSERVICE']._serialized_start=1707
-  _globals['_MODELINGSERVICE']._serialized_end=2761
+  _globals['_EQUIVALENT']._serialized_start=769
+  _globals['_EQUIVALENT']._serialized_end=837
+  _globals['_VARIABLE']._serialized_start=839
+  _globals['_VARIABLE']._serialized_end=884
+  _globals['_FIXEDVARIABLE']._serialized_start=886
+  _globals['_FIXEDVARIABLE']._serialized_end=928
+  _globals['_INTERPRETATION']._serialized_start=930
+  _globals['_INTERPRETATION']._serialized_end=976
+  _globals['_OBJECTIVE']._serialized_start=978
+  _globals['_OBJECTIVE']._serialized_end=1024
+  _globals['_SOLVEREQUEST']._serialized_start=1026
+  _globals['_SOLVEREQUEST']._serialized_end=1130
+  _globals['_SOLVERESPONSE']._serialized_start=1132
+  _globals['_SOLVERESPONSE']._serialized_end=1213
+  _globals['_SETRESPONSE']._serialized_start=1215
+  _globals['_SETRESPONSE']._serialized_end=1270
+  _globals['_BOOLEANSETRESPONSE']._serialized_start=1272
+  _globals['_BOOLEANSETRESPONSE']._serialized_end=1339
+  _globals['_IDREQUEST']._serialized_start=1341
+  _globals['_IDREQUEST']._serialized_end=1364
+  _globals['_IDRESPONSE']._serialized_start=1366
+  _globals['_IDRESPONSE']._serialized_end=1390
+  _globals['_IDSRESPONSE']._serialized_start=1392
+  _globals['_IDSRESPONSE']._serialized_end=1418
+  _globals['_ALIASREQUEST']._serialized_start=1420
+  _globals['_ALIASREQUEST']._serialized_end=1449
+  _globals['_MODEL']._serialized_start=1451
+  _globals['_MODEL']._serialized_end=1522
+  _globals['_EMPTY']._serialized_start=1524
+  _globals['_EMPTY']._serialized_end=1531
+  _globals['_PRIMITIVES']._serialized_start=1533
+  _globals['_PRIMITIVES']._serialized_end=1577
+  _globals['_COMPOSITES']._serialized_start=1579
+  _globals['_COMPOSITES']._serialized_end=1623
+  _globals['_METAINFORMATIONRESPONSE']._serialized_start=1626
+  _globals['_METAINFORMATIONRESPONSE']._serialized_end=1757
+  _globals['_MODELINGSERVICE']._serialized_start=1780
+  _globals['_MODELINGSERVICE']._serialized_end=2865
 # @@protoc_insertion_point(module_scope)

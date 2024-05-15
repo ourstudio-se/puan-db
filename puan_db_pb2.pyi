@@ -117,6 +117,16 @@ class Imply(_message.Message):
     alias: str
     def __init__(self, condition: _Optional[str] = ..., consequence: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
 
+class Equivalent(_message.Message):
+    __slots__ = ("lhs", "rhs", "alias")
+    LHS_FIELD_NUMBER: _ClassVar[int]
+    RHS_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    lhs: str
+    rhs: str
+    alias: str
+    def __init__(self, lhs: _Optional[str] = ..., rhs: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
+
 class Variable(_message.Message):
     __slots__ = ("id", "bound")
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -146,14 +156,14 @@ class Objective(_message.Message):
     def __init__(self, variables: _Optional[_Iterable[_Union[FixedVariable, _Mapping]]] = ...) -> None: ...
 
 class SolveRequest(_message.Message):
-    __slots__ = ("objectives", "fix", "solver")
+    __slots__ = ("objectives", "assume", "solver")
     OBJECTIVES_FIELD_NUMBER: _ClassVar[int]
-    FIX_FIELD_NUMBER: _ClassVar[int]
+    ASSUME_FIELD_NUMBER: _ClassVar[int]
     SOLVER_FIELD_NUMBER: _ClassVar[int]
     objectives: _containers.RepeatedCompositeFieldContainer[Objective]
-    fix: Interpretation
+    assume: Interpretation
     solver: Solver
-    def __init__(self, objectives: _Optional[_Iterable[_Union[Objective, _Mapping]]] = ..., fix: _Optional[_Union[Interpretation, _Mapping]] = ..., solver: _Optional[_Union[Solver, str]] = ...) -> None: ...
+    def __init__(self, objectives: _Optional[_Iterable[_Union[Objective, _Mapping]]] = ..., assume: _Optional[_Union[Interpretation, _Mapping]] = ..., solver: _Optional[_Union[Solver, str]] = ...) -> None: ...
 
 class SolveResponse(_message.Message):
     __slots__ = ("solutions", "error")

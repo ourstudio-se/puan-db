@@ -188,6 +188,19 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
         )
     
+    def SetEqual(self, request: puan_db_pb2.Equivalent, context):
+        return puan_db_pb2.SetResponse(
+            id=self.model_handler.modify(
+                lambda model: model.set_equal(
+                    [
+                        request.lhs,
+                        request.rhs,
+                    ], 
+                    request.alias,
+                )
+            )
+        )
+    
     def PropagateUpstream(self, request: puan_db_pb2.Interpretation, context):
         return PuanDB.dict_interpretation(
             self.model_handler.compute(
@@ -195,10 +208,10 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
         )
 
-    def PropagateDownstream(self, request: puan_db_pb2.Interpretation, context):
+    def Propagate(self, request: puan_db_pb2.Interpretation, context):
         return PuanDB.dict_interpretation(
             self.model_handler.compute(
-                lambda model: model.propagate_downstream(PuanDB.interpretation_dict(request))
+                lambda model: model.propagate(PuanDB.interpretation_dict(request))
             )
         )
     
@@ -218,7 +231,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
                         self.model_handler.compute(
                             lambda model: model.solve(
                                 list(map(PuanDB.objective_dict, request.objectives)), 
-                                PuanDB.interpretation_dict(request.fix), 
+                                PuanDB.interpretation_dict(request.assume), 
                                 Solver[puan_db_pb2.Solver.Name(request.solver)],
                             )
                         )
@@ -247,11 +260,14 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def Get(self, request, context):
-        return PuanDB.complex_bound(
-            self.model_handler.compute(
-                lambda model: model.get(request.id)
-            )[0]
-        )
+        try:
+            return PuanDB.complex_bound(
+                self.model_handler.compute(
+                    lambda model: model.get(request.id)
+                )[0]
+            )
+        except:
+            raise Exception(f"ID `{request.id}` not found")
     
     def GetMetaInformation(self, request, context):
         return puan_db_pb2.MetaInformationResponse(
