@@ -276,3 +276,31 @@ class ModelResponse(_message.Message):
     token: str
     error: str
     def __init__(self, success: bool = ..., token: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
+
+class CutVariableMapping(_message.Message):
+    __slots__ = ("from_id", "to_id")
+    FROM_ID_FIELD_NUMBER: _ClassVar[int]
+    TO_ID_FIELD_NUMBER: _ClassVar[int]
+    from_id: str
+    to_id: str
+    def __init__(self, from_id: _Optional[str] = ..., to_id: _Optional[str] = ...) -> None: ...
+
+class CutRequest(_message.Message):
+    __slots__ = ("cut_ids",)
+    CUT_IDS_FIELD_NUMBER: _ClassVar[int]
+    cut_ids: _containers.RepeatedCompositeFieldContainer[CutVariableMapping]
+    def __init__(self, cut_ids: _Optional[_Iterable[_Union[CutVariableMapping, _Mapping]]] = ...) -> None: ...
+
+class SubRequest(_message.Message):
+    __slots__ = ("ids",)
+    IDS_FIELD_NUMBER: _ClassVar[int]
+    ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class CutSubRequest(_message.Message):
+    __slots__ = ("cut", "sub")
+    CUT_FIELD_NUMBER: _ClassVar[int]
+    SUB_FIELD_NUMBER: _ClassVar[int]
+    cut: CutRequest
+    sub: SubRequest
+    def __init__(self, cut: _Optional[_Union[CutRequest, _Mapping]] = ..., sub: _Optional[_Union[SubRequest, _Mapping]] = ...) -> None: ...

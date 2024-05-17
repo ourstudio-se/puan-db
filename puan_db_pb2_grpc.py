@@ -129,6 +129,21 @@ class ModelingServiceStub(object):
                 request_serializer=puan__db__pb2.Equivalent.SerializeToString,
                 response_deserializer=puan__db__pb2.SetResponse.FromString,
                 )
+        self.Cut = channel.unary_unary(
+                '/ModelingService/Cut',
+                request_serializer=puan__db__pb2.CutRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.ModelResponse.FromString,
+                )
+        self.Sub = channel.unary_unary(
+                '/ModelingService/Sub',
+                request_serializer=puan__db__pb2.SubRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.ModelResponse.FromString,
+                )
+        self.CutSub = channel.unary_unary(
+                '/ModelingService/CutSub',
+                request_serializer=puan__db__pb2.CutSubRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.ModelResponse.FromString,
+                )
         self.Propagate = channel.unary_unary(
                 '/ModelingService/Propagate',
                 request_serializer=puan__db__pb2.Interpretation.SerializeToString,
@@ -295,6 +310,25 @@ class ModelingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Cut(self, request, context):
+        """Model cutting operations
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Sub(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CutSub(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Propagate(self, request, context):
         """Model computation operations
         """
@@ -437,6 +471,21 @@ def add_ModelingServiceServicer_to_server(servicer, server):
                     servicer.SetEqual,
                     request_deserializer=puan__db__pb2.Equivalent.FromString,
                     response_serializer=puan__db__pb2.SetResponse.SerializeToString,
+            ),
+            'Cut': grpc.unary_unary_rpc_method_handler(
+                    servicer.Cut,
+                    request_deserializer=puan__db__pb2.CutRequest.FromString,
+                    response_serializer=puan__db__pb2.ModelResponse.SerializeToString,
+            ),
+            'Sub': grpc.unary_unary_rpc_method_handler(
+                    servicer.Sub,
+                    request_deserializer=puan__db__pb2.SubRequest.FromString,
+                    response_serializer=puan__db__pb2.ModelResponse.SerializeToString,
+            ),
+            'CutSub': grpc.unary_unary_rpc_method_handler(
+                    servicer.CutSub,
+                    request_deserializer=puan__db__pb2.CutSubRequest.FromString,
+                    response_serializer=puan__db__pb2.ModelResponse.SerializeToString,
             ),
             'Propagate': grpc.unary_unary_rpc_method_handler(
                     servicer.Propagate,
@@ -856,6 +905,57 @@ class ModelingService(object):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/SetEqual',
             puan__db__pb2.Equivalent.SerializeToString,
             puan__db__pb2.SetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Cut(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/Cut',
+            puan__db__pb2.CutRequest.SerializeToString,
+            puan__db__pb2.ModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Sub(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/Sub',
+            puan__db__pb2.SubRequest.SerializeToString,
+            puan__db__pb2.ModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def CutSub(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/CutSub',
+            puan__db__pb2.CutSubRequest.SerializeToString,
+            puan__db__pb2.ModelResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -20,6 +20,9 @@ class LocalModelHandler:
 
     def create_token(self, id: str, password: str) -> str:
         return hashlib.sha256(f"{id}-{password}-{self.salt}".encode()).hexdigest()
+    
+    def create_token_from_model(self, model) -> str:
+        return hashlib.sha256(f"{model.sha1()}{self.salt}".encode()).hexdigest()
 
     def save_model(self, model, token):
         with open(token, "wb") as f:
@@ -46,6 +49,10 @@ class ComputingDevice:
 
     token: str
     handler: LocalModelHandler
+
+    @property
+    def model(self):
+        return self.handler.load_model(self.token)
 
     def modify(self, f):
         model = self.handler.load_model(self.token)
@@ -512,7 +519,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
-        model = computing_device.load_model()
+        model = computing_device.model
         return puan_db_pb2.Composites(
             composites=list(
                 map(
@@ -538,6 +545,87 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.IDsResponse(
             ids=computing_device.compute(lambda model: model.composites.tolist())
         )
+    
+    def Cut(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+        try:
+            new_model = computing_device.compute(
+                lambda model: model.cut(
+                    dict(
+                        map(
+                            lambda x: (x.from_id, x.to_id),
+                            request.cut_ids
+                        )
+                    )
+                )
+            )
+            new_token = self.model_handler.create_token_from_model(new_model)
+            self.model_handler.save_model(new_model, new_token)
+            return puan_db_pb2.ModelResponse(
+                error=None,
+                token=new_token,
+                success=True,
+            )
+        except Exception as e:
+            logging.log(logging.ERROR, e)
+            return puan_db_pb2.ModelResponse(
+                error="Could not cut model",
+                success=False,
+            )
+        
+    def Sub(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+        try:
+            new_model = computing_device.compute(
+                lambda model: model.sub(request.ids)
+            )
+            new_token = self.model_handler.create_token_from_model(new_model)
+            self.model_handler.save_model(new_model, new_token)
+            return puan_db_pb2.ModelResponse(
+                error=None,
+                token=new_token,
+                success=True,
+            )
+        except Exception as e:
+            logging.log(logging.ERROR, e)
+            return puan_db_pb2.ModelResponse(
+                error="Could not sub model",
+                success=False,
+            )
+        
+    def CutSub(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+        try:
+            new_model = computing_device.compute(
+                lambda model: model.cut_sub(
+                    dict(
+                        map(
+                            lambda x: (x.from_id, x.to_id),
+                            request.cut_ids
+                        )
+                    ),
+                    request.ids
+                )
+            )
+            new_token = self.model_handler.create_token_from_model(new_model)
+            self.model_handler.save_model(new_model, new_token)
+            return puan_db_pb2.ModelResponse(
+                error=None,
+                token=new_token,
+                success=True,
+            )
+        except Exception as e:
+            logging.log(logging.ERROR, e)
+            return puan_db_pb2.ModelResponse(
+                error="Could not cut sub model",
+                success=False,
+            )
 
 def serve():
     handler = LocalModelHandler(os.getenv('SALT', '1234'))
