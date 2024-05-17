@@ -9,9 +9,9 @@ import hashlib
 
 from concurrent import futures
 from dataclasses import dataclass
-from itertools import chain, starmap
+from itertools import starmap
 from pldag import PLDAG, Solver, NoSolutionsException
-from typing import Optional, List, Dict
+from typing import Optional, Dict
     
 @dataclass
 class LocalModelHandler:
@@ -57,7 +57,7 @@ class ComputingDevice:
     def modify(self, f):
         model = self.handler.load_model(self.token)
         result = f(model)
-        self.handler(model, self.token)
+        self.handler.save_model(model, self.token)
         return result
     
     def compute(self, f):
@@ -177,6 +177,11 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
     def ModelSelect(self, request, context):
         try:
             token = self.model_handler.create_token(request.id, request.password)
+            if not self.model_handler.verify_token(token):
+                return puan_db_pb2.ModelResponse(
+                    error="Invalid credentials",
+                    success=False,
+                )
             return puan_db_pb2.ModelResponse(
                 error=None,
                 token=token,
