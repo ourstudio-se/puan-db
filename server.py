@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from itertools import starmap
 from pldag import PLDAG, Solver, NoSolutionsException
 from typing import Optional, Dict
-    
+
 @dataclass
-class LocalModelHandler:
+class ModelHandler:
 
     salt: str
 
@@ -24,14 +24,27 @@ class LocalModelHandler:
     def create_token_from_model(self, model) -> str:
         return hashlib.sha256(f"{model.sha1()}{self.salt}".encode()).hexdigest()
 
-    def save_model(self, model, token):
-        with open(token, "wb") as f:
-            f.write(gzip.compress(pickle.dumps(model)))
-
     def create_model(self, id: str, password: str) -> str:
         token = self.create_token(id, password)
         self.save_model(PLDAG(), token)
         return token
+
+    def save_model(self, model, token):
+        raise NotImplementedError("Method not implemented")
+
+    def load_model(self, token: str) -> Optional[PLDAG]:
+        raise NotImplementedError("Method not implemented")
+        
+    def verify_token(self, token: str) -> bool:
+        raise NotImplementedError("Method not implemented")
+
+    
+@dataclass
+class LocalModelHandler(ModelHandler):
+
+    def save_model(self, model, token):
+        with open(token, "wb") as f:
+            f.write(gzip.compress(pickle.dumps(model)))
 
     def load_model(self, token: str) -> Optional[PLDAG]:
         try:
@@ -43,6 +56,37 @@ class LocalModelHandler:
         
     def verify_token(self, token: str) -> bool:
         return os.path.exists(token)
+    
+
+from io import BytesIO
+from azure.storage.blob import BlobServiceClient
+
+@dataclass
+class AzureBlobModelHandler(ModelHandler):
+    
+    connection_string: str
+    container: str
+
+    def blob(self, token: str):
+        return BlobServiceClient.from_connection_string(self.connection_string).get_blob_client(self.container, token)
+    
+    def save_model(self, model, token):
+        client = self.blob(token)
+        client.upload_blob(gzip.compress(pickle.dumps(model)), overwrite=True)
+    
+    def load_model(self, token: str) -> Optional[PLDAG]:
+
+        # Download the blob's content into a BytesIO object
+        stream = BytesIO()
+        self.blob(token).download_blob().download_to_stream(stream)
+
+        # Reset the stream position to the beginning
+        stream.seek(0)
+        model = pickle.loads(gzip.decompress(stream.read()))
+        return model
+    
+    def verify_token(self, token: str) -> bool:
+        return self.blob(token).exists()
         
 @dataclass
 class ComputingDevice:
@@ -633,7 +677,11 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
 
 def serve():
-    handler = LocalModelHandler(os.getenv('SALT', '1234'))
+    handler = AzureBlobModelHandler(
+        os.getenv('SALT'),
+        os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
+        os.getenv('AZURE_STORAGE_CONTAINER')
+    )
     port = os.getenv('APP_PORT', '50051')
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=10),
