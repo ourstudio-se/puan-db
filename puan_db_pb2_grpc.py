@@ -14,6 +14,16 @@ class ModelingServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.ModelSelect = channel.unary_unary(
+                '/ModelingService/ModelSelect',
+                request_serializer=puan__db__pb2.SelectModelRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.ModelResponse.FromString,
+                )
+        self.ModelCreate = channel.unary_unary(
+                '/ModelingService/ModelCreate',
+                request_serializer=puan__db__pb2.CreateModelRequest.SerializeToString,
+                response_deserializer=puan__db__pb2.ModelResponse.FromString,
+                )
         self.Get = channel.unary_unary(
                 '/ModelingService/Get',
                 request_serializer=puan__db__pb2.IDRequest.SerializeToString,
@@ -143,6 +153,19 @@ class ModelingServiceStub(object):
 
 class ModelingServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def ModelSelect(self, request, context):
+        """Model auth selection
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ModelCreate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Get(self, request, context):
         """Model information operations
@@ -300,6 +323,16 @@ class ModelingServiceServicer(object):
 
 def add_ModelingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'ModelSelect': grpc.unary_unary_rpc_method_handler(
+                    servicer.ModelSelect,
+                    request_deserializer=puan__db__pb2.SelectModelRequest.FromString,
+                    response_serializer=puan__db__pb2.ModelResponse.SerializeToString,
+            ),
+            'ModelCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.ModelCreate,
+                    request_deserializer=puan__db__pb2.CreateModelRequest.FromString,
+                    response_serializer=puan__db__pb2.ModelResponse.SerializeToString,
+            ),
             'Get': grpc.unary_unary_rpc_method_handler(
                     servicer.Get,
                     request_deserializer=puan__db__pb2.IDRequest.FromString,
@@ -434,6 +467,40 @@ def add_ModelingServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class ModelingService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def ModelSelect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/ModelSelect',
+            puan__db__pb2.SelectModelRequest.SerializeToString,
+            puan__db__pb2.ModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ModelCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/ModelCreate',
+            puan__db__pb2.CreateModelRequest.SerializeToString,
+            puan__db__pb2.ModelResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def Get(request,

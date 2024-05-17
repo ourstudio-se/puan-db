@@ -5,39 +5,84 @@ import puan_db_pb2_grpc
 import puan_db_pb2
 import pickle
 import gzip
+import hashlib
 
 from concurrent import futures
 from dataclasses import dataclass
 from itertools import chain, starmap
 from pldag import PLDAG, Solver, NoSolutionsException
 from typing import Optional, List, Dict
-
+    
 @dataclass
 class LocalModelHandler:
 
-    model_path: str
+    salt: str
 
-    def load_model(self) -> PLDAG:
-        try:
-            with open(self.model_path, "rb") as f:
-                return pickle.loads(gzip.decompress(f.read()))
-        except:
-            new_model = PLDAG()
-            self.save_model(new_model)
-            return new_model
-        
-    def save_model(self, model: PLDAG):
-        with open(self.model_path, "wb") as f:
+    def create_token(self, id: str, password: str) -> str:
+        return hashlib.sha256(f"{id}-{password}-{self.salt}".encode()).hexdigest()
+
+    def save_model(self, model, token):
+        with open(token, "wb") as f:
             f.write(gzip.compress(pickle.dumps(model)))
 
+    def create_model(self, id: str, password: str) -> str:
+        token = self.create_token(id, password)
+        self.save_model(PLDAG(), token)
+        return token
+
+    def load_model(self, token: str) -> Optional[PLDAG]:
+        try:
+            with open(token, "rb") as f:
+                return pickle.loads(gzip.decompress(f.read()))
+        except Exception as e:
+            logging.log(logging.ERROR, e)
+            return None
+        
+    def verify_token(self, token: str) -> bool:
+        return os.path.exists(token)
+        
+@dataclass
+class ComputingDevice:
+
+    token: str
+    handler: LocalModelHandler
+
     def modify(self, f):
-        model = self.load_model()
+        model = self.handler.load_model(self.token)
         result = f(model)
-        self.save_model(model)
+        self.handler(model, self.token)
         return result
     
     def compute(self, f):
-        return f(self.load_model())
+        return f(self.handler.load_model(self.token))
+        
+def _unary_unary_rpc_terminator(code, details):
+    def terminate(ignored_request, context):
+        context.abort(code, details)
+
+    return grpc.unary_unary_rpc_method_handler(terminate)
+    
+class DataFetchingInterceptor(grpc.ServerInterceptor):
+
+    def __init__(self, model_handler: LocalModelHandler):
+        self.model_handler = model_handler
+
+    def intercept_service(self, continuation, handler_call_details):
+        # Exclude certain methods from requiring model-id
+        if handler_call_details.method not in ["/ModelingService/ModelCreate", "/ModelingService/ModelSelect"]:
+            metadata_dict = dict(handler_call_details.invocation_metadata)
+            token = metadata_dict.get('token')
+            if not token:
+                return _unary_unary_rpc_terminator(grpc.StatusCode.UNAUTHENTICATED, "Token is missing")
+            
+            # Fetch data based on token
+            if not self.model_handler.verify_token(token):
+                return _unary_unary_rpc_terminator(grpc.StatusCode.INTERNAL, "Invalid token")
+
+            return continuation(handler_call_details)
+        
+        # Continue processing the request
+        return continuation(handler_call_details)
 
 class PuanDB(puan_db_pb2_grpc.ModelingService):
 
@@ -101,23 +146,71 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
         )
     
+    def device_from_context(self, context):
+        token = dict(context.invocation_metadata()).get('token', None)
+        if not token:
+            return None
+        return ComputingDevice(token, self.model_handler)
+    
+    def ModelCreate(self, request, context):
+        try:
+            token = self.model_handler.create_model(request.id, request.password)
+            return puan_db_pb2.ModelResponse(
+                error=None,
+                token=token,
+                success=True,
+            )
+        except Exception as e:
+            logging.log(logging.ERROR, e)
+            return puan_db_pb2.ModelResponse(
+                error="Could not create model",
+                success=False,
+            )
+    
+    def ModelSelect(self, request, context):
+        try:
+            token = self.model_handler.create_token(request.id, request.password)
+            return puan_db_pb2.ModelResponse(
+                error=None,
+                token=token,
+                success=True,
+            )
+        except Exception as e:
+            logging.log(logging.ERROR, e)
+            return puan_db_pb2.ModelResponse(
+                error="Invalid credentials",
+                success=False,
+            )
+    
     def SetPrimitive(self, request: puan_db_pb2.Primitive, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_primitive(request.id, PuanDB.bound_complex(request.bound))
             )
         )
 
     def SetPrimitives(self, request: puan_db_pb2.Primitive, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.IDsResponse(
-            ids=self.model_handler.modify(
+            ids=computing_device.modify(
                 lambda model: model.set_primitives(request.ids, PuanDB.bound_complex(request.bound))
             )
         )
     
     def SetAtLeast(self, request: puan_db_pb2.AtLeast, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_atleast(
                     request.references, 
                     request.value, 
@@ -127,8 +220,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetAtMost(self, request: puan_db_pb2.AtMost, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_atmost(
                     request.references, 
                     request.value, 
@@ -138,8 +235,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetAnd(self, request: puan_db_pb2.And, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_and(
                     request.references, 
                     request.alias,
@@ -148,8 +249,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetOr(self, request: puan_db_pb2.Or, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_or(
                     request.references, 
                     request.alias,
@@ -158,8 +263,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetXor(self, request: puan_db_pb2.Xor, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_xor(
                     request.references, 
                     request.alias,
@@ -168,8 +277,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetNot(self, request: puan_db_pb2.Not, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_not(
                     request.references, 
                     request.alias,
@@ -178,8 +291,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetImply(self, request: puan_db_pb2.Imply, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_imply(
                     request.condition, 
                     request.consequence, 
@@ -189,8 +306,12 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def SetEqual(self, request: puan_db_pb2.Equivalent, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.SetResponse(
-            id=self.model_handler.modify(
+            id=computing_device.modify(
                 lambda model: model.set_equal(
                     [
                         request.lhs,
@@ -202,33 +323,49 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def PropagateUpstream(self, request: puan_db_pb2.Interpretation, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return PuanDB.dict_interpretation(
-            self.model_handler.compute(
+            computing_device.compute(
                 lambda model: model.propagate_upstream(PuanDB.interpretation_dict(request))
             )
         )
 
     def Propagate(self, request: puan_db_pb2.Interpretation, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return PuanDB.dict_interpretation(
-            self.model_handler.compute(
+            computing_device.compute(
                 lambda model: model.propagate(PuanDB.interpretation_dict(request))
             )
         )
     
     def PropagateBidirectional(self, request: puan_db_pb2.Interpretation, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return PuanDB.dict_interpretation(
-            self.model_handler.compute(
+            computing_device.compute(
                 lambda model: model.propagate_bistream(PuanDB.interpretation_dict(request))
             )
         )
     
     def Solve(self, request: puan_db_pb2.SolveRequest, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         try:
             return puan_db_pb2.SolveResponse(
                 solutions=list(
                     map(
                         PuanDB.dict_interpretation,
-                        self.model_handler.compute(
+                        computing_device.compute(
                             lambda model: model.solve(
                                 list(map(PuanDB.objective_dict, request.objectives)), 
                                 PuanDB.interpretation_dict(request.assume), 
@@ -253,16 +390,24 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
 
     def Delete(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.BooleanSetResponse(
-            success=self.model_handler.modify(
+            success=computing_device.modify(
                 lambda model: model.delete(request.id)
             )
         )
     
     def Get(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         try:
             return PuanDB.complex_bound(
-                self.model_handler.compute(
+                computing_device.compute(
                     lambda model: model.get(request.id)
                 )[0]
             )
@@ -270,23 +415,39 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             raise Exception(f"ID `{request.id}` not found")
     
     def GetMetaInformation(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.MetaInformationResponse(
-            nrows=self.model_handler.compute(lambda model: model._amat.shape[0]),
-            ncols=self.model_handler.compute(lambda model: model._amat.shape[1]),
+            nrows=computing_device.compute(lambda model: model._amat.shape[0]),
+            ncols=computing_device.compute(lambda model: model._amat.shape[1]),
         )
     
     def GetDependencies(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.IDsResponse(
-            ids=self.model_handler.compute(lambda model: model.dependencies(request.id))
+            ids=computing_device.compute(lambda model: model.dependencies(request.id))
         )
     
     def GetIDFromAlias(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.IDResponse(
-            id=self.model_handler.compute(lambda model: model.id_from_alias(request.alias))
+            id=computing_device.compute(lambda model: model.id_from_alias(request.alias))
         )
     
     def GetPrimitive(self, request, context):
-        bound_complex = self.model_handler.compute(lambda model: model.get(request.id))
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
+        bound_complex = computing_device.compute(lambda model: model.get(request.id))
         return puan_db_pb2.Primitive(
             id=request.id,
             bound=puan_db_pb2.Bound(
@@ -296,6 +457,10 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def GetPrimitives(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.Primitives(
             primitives=list(
                 map(
@@ -306,7 +471,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
                             upper=int(x[1].imag),
                         )
                     ),
-                    self.model_handler.compute(
+                    computing_device.compute(
                         lambda model: zip(
                             model.primitives, 
                             map(model.get, model.primitives)
@@ -317,13 +482,21 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def GetPrimitiveIds(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.IDsResponse(
-            ids=self.model_handler.compute(lambda model: model.primitives.tolist())
+            ids=computing_device.compute(lambda model: model.primitives.tolist())
         )
     
     def GetComposite(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.Composite(
-            **self.model_handler.compute(
+            **computing_device.compute(
                 lambda model: {
                     "id": request.id,
                     "references": model.dependencies(request.id),
@@ -335,7 +508,11 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     def GetComposites(self, request, context):
-        model = self.model_handler.load_model()
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
+        model = computing_device.load_model()
         return puan_db_pb2.Composites(
             composites=list(
                 map(
@@ -354,15 +531,23 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
 
     def GetCompositeIds(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
         return puan_db_pb2.IDsResponse(
-            ids=self.model_handler.compute(lambda model: model.composites.tolist())
+            ids=computing_device.compute(lambda model: model.composites.tolist())
         )
 
 def serve():
+    handler = LocalModelHandler(os.getenv('SALT', '1234'))
     port = os.getenv('APP_PORT', '50051')
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10),
+        interceptors=[DataFetchingInterceptor(handler)]
+    )
     puan_db_pb2_grpc.add_ModelingServiceServicer_to_server(
-        PuanDB(LocalModelHandler("_default.puan")),
+        PuanDB(handler),
         server
     )
     server.add_insecure_port("[::]:" + port)

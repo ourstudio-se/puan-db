@@ -248,3 +248,31 @@ class MetaInformationResponse(_message.Message):
     ncombs_lb: int
     ncombs_ub: int
     def __init__(self, nrows: _Optional[int] = ..., ncols: _Optional[int] = ..., ncombs_lb: _Optional[int] = ..., ncombs_ub: _Optional[int] = ...) -> None: ...
+
+class SelectModelRequest(_message.Message):
+    __slots__ = ("id", "password")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    password: str
+    def __init__(self, id: _Optional[str] = ..., password: _Optional[str] = ...) -> None: ...
+
+class CreateModelRequest(_message.Message):
+    __slots__ = ("id", "password", "name")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    password: str
+    name: str
+    def __init__(self, id: _Optional[str] = ..., password: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class ModelResponse(_message.Message):
+    __slots__ = ("success", "token", "error")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    token: str
+    error: str
+    def __init__(self, success: bool = ..., token: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
