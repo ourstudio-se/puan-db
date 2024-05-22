@@ -1,3 +1,9 @@
+# Usage: 
+# import lexer
+# inp = """SET x {price: 5.0, category: 'Model'}"""
+# lexed = lexer.lex(inp)
+
+
 # OPERATIONAL KEYWORDS:     SET, GET, DEL, SUB, CUT, ASSUME, REDUCE, PROPAGATE, MAXIMIZE, MINIMIZE
 # ADDITIONAL KEYWORDS:      ATLEAST, ATMOST, AND, OR, XOR, NOT, EQUAL, IMPLY, EQUIV, SUCHTHAT
 
@@ -30,7 +36,7 @@
 # 3) Göra operation på delgraf
 
 # EXAMPLES
-inp="""
+"""
     SET a                                       # Set boolean variable a with no attributes
     SET b {}                                    # Set boolean variable b with no attributes
     SET c {} -2..3                              # Set integer variable c with bounds -2 to 3
@@ -568,6 +574,3 @@ def lex(inp):
         i += 1 
 
     return collected
-
-lexed = lex(inp)
-x=1
