@@ -53,8 +53,8 @@
     # SET NOT [...] {} 
     # SET EQUAL [...] {} 
     
-    SET IMPLY [x y] {}                          # Set if x then y
-    SET EQUIV [x y] {}                          # Set if x then y, if y then x
+    SET IMPLY [x, y] {}                          # Set if x then y
+    SET EQUIV [x, y] {}                          # Set if x then y, if y then x
 
     SUB [x : x.price > 7.0]                     # Create's a sub graph with starting points where price > 7.0
     GET [x, y, z]                               # Get variables with ID x, y or z's properties and bounds
@@ -140,7 +140,7 @@ class DATATYPE(Enum):
 
 @dataclass
 class PROPERTIES:
-    properties: dict
+    properties: dict = field(default_factory=dict)
 
 @dataclass
 class LIST:
@@ -208,21 +208,21 @@ LIST_PREDICATE = Union[PREDICATE, LIST]
 @dataclass
 class ACTION_SET_PRIMITIVE:
     arg: Union[VARIABLE, LIST]
-    properties: dict = field(default_factory=dict)
-    bound: tuple = field(default_factory=tuple)
+    properties: PROPERTIES = field(default_factory=PROPERTIES)
+    bound: BOUND = BOUND(0, 1)
 
 @dataclass
 class ACTION_SET_LIST_COMPOSITE:
     sub_action: SUB_ACTION_TYPE
     arguments: LIST_PREDICATE
-    properties: dict = field(default_factory=dict)
+    properties: PROPERTIES = field(default_factory=PROPERTIES)
 
 @dataclass
 class ACTION_SET_VALUE_COMPOSITE:
     sub_action: SUB_ACTION_TYPE
     arguments: LIST_PREDICATE
     value: VALUE
-    properties: dict = field(default_factory=dict)
+    properties: PROPERTIES = field(default_factory=PROPERTIES)
 
 @dataclass
 class ACTION_GET:
@@ -238,11 +238,11 @@ class ACTION_SUB:
 
 @dataclass
 class ACTION_CUT:
-    argument: Union[VARIABLE, dict]
+    argument: Union[VARIABLE, PROPERTIES]
 
 @dataclass
 class ACTION_ASSUME:
-    argument: dict
+    argument: PROPERTIES
 
 @dataclass
 class ACTION_REDUCE:
@@ -250,16 +250,16 @@ class ACTION_REDUCE:
 
 @dataclass
 class ACTION_PROPAGATE:
-    argument: dict
+    argument: PROPERTIES
 
 @dataclass
 class ACTION_MAXIMIZE:
-    argument: dict
+    argument: PROPERTIES
     suchthat: INT_ASSIGNMENT
 
 @dataclass
 class ACTION_MINIMIZE:
-    argument: dict
+    argument: PROPERTIES
     suchthat: INT_ASSIGNMENT
 
 def prelex(inp):
@@ -572,5 +572,8 @@ def lex(inp):
             bracket_count -= 1
         
         i += 1 
+
+    if token != "":
+        collected.append(lex_action(token.replace("\n", "").strip()))
 
     return collected
