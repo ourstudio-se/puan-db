@@ -207,7 +207,13 @@ LIST_PREDICATE = Union[PREDICATE, LIST]
 
 @dataclass
 class ACTION_SET_PRIMITIVE:
-    arg: Union[VARIABLE, LIST]
+    arg: VARIABLE
+    properties: PROPERTIES = field(default_factory=PROPERTIES)
+    bound: BOUND = BOUND(0, 1)
+
+@dataclass
+class ACTION_SET_PRIMITIVES:
+    arg: LIST
     properties: PROPERTIES = field(default_factory=PROPERTIES)
     bound: BOUND = BOUND(0, 1)
 
@@ -448,18 +454,36 @@ def lex_action(inp):
     lexed.append(lex_token(token.strip()))
     if action == "SET":
         if len(lexed) == 1:
-            return ACTION_SET_PRIMITIVE(lexed[0])
+            if type(lexed[0]) == LIST:
+                return ACTION_SET_PRIMITIVES(lexed[0])
+            elif type(lexed[0]) == VARIABLE:
+                return ACTION_SET_PRIMITIVE(lexed[0])
+            else:
+                raise ValueError(f"Invalid SET action: First argument {lexed[0]} is invalid.")
         elif len(lexed) == 2:
             arg0, arg1 = lexed
             if type(arg0) == SUB_ACTION_TYPE:
                 return ACTION_SET_LIST_COMPOSITE(arg0, arg1)
-            return ACTION_SET_PRIMITIVE(arg0, arg1)
+            elif type(arg0) in [VARIABLE, LIST]:
+                if type(arg0) == LIST:
+                    return ACTION_SET_PRIMITIVES(arg0, arg1)
+                elif type(arg0) == VARIABLE:
+                    return ACTION_SET_PRIMITIVE(arg0, arg1)
+                else:
+                    raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
+            else:
+                raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
         elif len(lexed) == 3:
             arg0, arg1, arg2 = lexed
             if type(arg0) == SUB_ACTION_TYPE:
                 return ACTION_SET_LIST_COMPOSITE(arg0, arg1, arg2)
             elif type(arg0) in [VARIABLE, LIST]:
-                return ACTION_SET_PRIMITIVE(arg0, arg1, arg2)
+                if type(arg0) == LIST:
+                    return ACTION_SET_PRIMITIVES(arg0, arg1, arg2)
+                elif type(arg0) == VARIABLE:
+                    return ACTION_SET_PRIMITIVE(arg0, arg1, arg2)
+                else:
+                    raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
             else:
                 raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
         elif len(lexed) == 4:

@@ -15,7 +15,7 @@ def test_cases():
     assert lexer.lex(case_3)[0] == expected_case_3
 
     case_4 = "SET [d,e,f] # Set boolean variables d,e,f with no attributes"
-    expected_case_4 = lexer.ACTION_SET_PRIMITIVE(lexer.LIST([lexer.VARIABLE("d"), lexer.VARIABLE("e"), lexer.VARIABLE("f")]))
+    expected_case_4 = lexer.ACTION_SET_PRIMITIVES(lexer.LIST([lexer.VARIABLE("d"), lexer.VARIABLE("e"), lexer.VARIABLE("f")]))
     assert lexer.lex(case_4)[0] == expected_case_4
 
     case_5 = "SET x {price: 5.0, category: 'Model'} # Set variable x with attributes price and category"
