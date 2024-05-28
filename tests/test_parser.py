@@ -1,6 +1,5 @@
 import puan_db_parser
-import maz
-from pldag import Puan
+from pldag import Puan, Solution
 from datatypes import *
 model = Puan()
 
@@ -456,4 +455,18 @@ def test_case30():
     case_30 = [ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1)), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1))]
     expected_case_30 = ('x', 'y')
     assert puan_db_parser.Parser(model).parse(case_30)() == expected_case_30
+
+def test_case31():
+    case_31 = ACTION_SET_PRIMITIVE(VARIABLE("a"))
+    model.set_primitive('a') 
+    expected_case_31 = model, model.propagate({})
+    assert puan_db_parser.Parser(model).evaluate(case_31) == expected_case_31
+
+def test_case32():
+    case_24 = ACTION_ASSUME(
+        PROPERTIES({"A": BOUND(1, 2)}))
+    model.set_primitive('A', bound=BOUND(0, 5))
+    sol = model.propagate({'A': complex(1, 2)})
+    expectedcase_case_24 = model, sol
+    assert puan_db_parser.Parser(model).evaluate(case_24) == expectedcase_case_24
 

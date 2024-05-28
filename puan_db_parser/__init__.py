@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datatypes import *
 from typing import List, Dict, Any, Callable
+from pldag import Solution
 
 @dataclass
 class Node:
@@ -157,21 +158,24 @@ class Parser:
             return {self.parse(token.lhs): self.parse(token.rhs)}
         else:
             return [], {self.parse(k): self.parse(v) for k,v in token.__dict__.items()}
-
-def evaluate(ast):
-    if isinstance(ast, list):
-        return list(
-            map(
-                evaluate,
-                ast
-            )
-        )
-    elif isinstance(ast, dict):
-        return {k: evaluate(v) for k,v in ast.items()}
-    elif isinstance(ast, Node):
-        return ast.func(*evaluate(ast.args), **evaluate(ast.kwargs))
-    else:
-        return ast
+    
+    def evaluate(self, tokens):
+        def _evaluate(result):
+            if isinstance(result, str):
+                return self.model, self.model.propagate({})
+            elif isinstance(result, list):
+                return list(
+                    map(
+                        _evaluate,
+                        result
+                    )
+                )
+            elif isinstance(result, Solution):
+                return self.model, result
+            else:
+                raise ValueError("Got unexpected result from parsing")
+        result = self.parse(tokens)()
+        return _evaluate(result)
     
 def evaluate_predicate(variable: str, properties: Dict, proposition: PROPOSITION) -> bool:
     if isinstance(proposition, VARIABLE):
