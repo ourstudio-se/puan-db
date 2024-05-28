@@ -451,3 +451,9 @@ def test_case29():
               }]
     )
     assert puan_db_parser.Parser(model).parse(case_29) == expectedcase_case_29
+
+def test_case30():
+    case_30 = [ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1)), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1))]
+    expected_case_30 = ('x', 'y')
+    assert puan_db_parser.Parser(model).parse(case_30)() == expected_case_30
+

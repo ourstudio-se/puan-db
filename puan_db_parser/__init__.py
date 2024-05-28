@@ -1,29 +1,29 @@
 from dataclasses import dataclass, field
 from datatypes import *
 from typing import List, Dict, Any, Callable
-from maz import invoke
 
 @dataclass
 class Node:
     func: Callable
     args: List[Any] = field(default_factory=list)
     kwargs: Dict[str, Any] = field(default_factory=dict)
-    def __call__(self):
-        return self.func(*self.__evaluate(self.args), **self.__evaluate(self.kwargs))
-    def __evaluate(self, n):
+
+    def evaluate(self, n):
         if isinstance(n, list):
             return list(
                 map(
-                    self.__evaluate,
+                    self.evaluate,
                     n
                 )
             )
         elif isinstance(n, dict):
-            return {self.__evaluate(k): self.__evaluate(v) for k,v in n.items()}
+            return {self.evaluate(k): self.evaluate(v) for k,v in n.items()}
         elif isinstance(n, Node):
             return n()
         else:
             return n
+    def __call__(self):
+        return self.func(*self.evaluate(self.args), **self.evaluate(self.kwargs))
     def __hash__(self) -> int:
         return hash(self())
 
@@ -46,7 +46,7 @@ class Parser:
             return self.arguments(tokens)
         elif isinstance(tokens, list):
             return Node(
-                    invoke,
+                    lambda a, k: (a, k),
                     list(
                         map(
                             self.action,
