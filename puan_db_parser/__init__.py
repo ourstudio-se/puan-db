@@ -47,7 +47,7 @@ class Parser:
             return self.arguments(tokens)
         elif isinstance(tokens, list):
             return Node(
-                    lambda a, k: (a, k),
+                    lambda *a: a,
                     list(
                         map(
                             self.action,
@@ -163,7 +163,7 @@ class Parser:
         def _evaluate(result):
             if isinstance(result, str):
                 return self.model, self.model.propagate({})
-            elif isinstance(result, list):
+            elif isinstance(result, (list, tuple)):
                 return list(
                     map(
                         _evaluate,

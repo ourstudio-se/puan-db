@@ -463,10 +463,14 @@ def test_case31():
     assert puan_db_parser.Parser(model).evaluate(case_31) == expected_case_31
 
 def test_case32():
-    case_24 = ACTION_ASSUME(
+    model = Puan()
+    case_32 = ACTION_ASSUME(
         PROPERTIES({"A": BOUND(1, 2)}))
     model.set_primitive('A', bound=BOUND(0, 5))
     sol = model.propagate({'A': complex(1, 2)})
-    expectedcase_case_24 = model, sol
-    assert puan_db_parser.Parser(model).evaluate(case_24) == expectedcase_case_24
+    expectedcase_case_32 = model, sol
+    assert puan_db_parser.Parser(model).evaluate(case_32) == expectedcase_case_32
 
+def test_case33():
+    case_33 = [ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1))]
+    puan_db_parser.Parser(model).evaluate(case_33)
