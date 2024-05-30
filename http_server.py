@@ -1,22 +1,34 @@
+import uvicorn
 import os
 import numpy as np
 import lexer
-from flask import Flask, jsonify, request
-from flask_cors import CORS, cross_origin
+from fastapi import FastAPI
 from pldag import Puan
 from puan_db_parser import Parser
 from itertools import chain, starmap
 from storage import AzureBlobModelHandler, ComputingDevice
+
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
+
+app = FastAPI()
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust the allowed origins as needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 handler = AzureBlobModelHandler(
     salt="",
     connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
     container=os.getenv('AZURE_STORAGE_CONTAINER')
 )
-
-app = Flask(__name__)
-cors = CORS(app, resources={r"/*": {"origins": "*"}})
-app.config['CORS_HEADERS'] = 'Content-Type'
 
 def to_edges(model: Puan):
     return list(
@@ -54,100 +66,98 @@ def to_nodes(model: Puan, solution = None):
         )
     )
 
-@app.route('/')
-@cross_origin()
+@app.get('/')
 def home():
     return "Hello, World!"
-
-@app.route('/api/models/<model_name>', methods=['GET'])
-@cross_origin()
+@app.get('/api/models/{model_name}')
 def get_model(model_name):
     model = handler.load_model(model_name)
     if model is None:
-        return jsonify({"error": "Model not found"}), 404
+        return Response(content="Model not found", status_code=404)
     
     nodes = to_nodes(model)
     edges = to_edges(model)
     
-    return jsonify({
+    return {
         "model": model_name,
         "nodes": nodes,
         "edges": edges
-    })
+    }
 
-@app.route('/api/models', methods=['GET'])
-@cross_origin()
+@app.get('/api/models')
 def get_models():
     return handler.list_blobs()
 
-@app.route('/api/models', methods=['POST'])
-@cross_origin()
-def create_model():
-    model_name = request.get_json().get("model", None)
+@app.post('/api/models')
+async def create_model(request: Request):
+    model_name = await request.json().get("model", None)
     if model_name is None:
-        return jsonify({"error": "Model name was empty"}), 400
-    
+        raise HTTPException(status_code=400, detail="Model name was empty")
+
     existing_models = handler.list_blobs()
 
     if model_name in existing_models:
-        return jsonify({"error": "Model already exists"}), 400
-    
+        raise HTTPException(status_code=400, detail="Model already exists")
+
     model = Puan()
     handler.save_model(model, model_name)
 
-    return jsonify({
+    return {
         "model": model_name,
         "nodes": [],
         "edges": []
-    })
+    }
 
-@app.route('/api/lex', methods=['POST'])
-def lex_query():
-    query = request.get_json().get("query", None)
+class QueryModel(BaseModel):
+    query: Optional[str] = None
+    model: Optional[str] = None
+
+@app.post("/api/lex")
+async def lex_query(query_model: QueryModel):
+    query = query_model.query
     if query is None:
-        return jsonify({"error": "Query was empty"}), 400
+        raise HTTPException(status_code=400, detail="Query was empty")
     
     try:
         lexed = lexer.lex(query)[0]
-        return jsonify({
+        return {
             "lexed": {
                 "type": lexed.__class__.__name__,
                 "content": lexed
             },
             "error": None
-        })
+        }
     except Exception as e:
-        return jsonify({"tokens": [], "error": str(e)}), 200
+        return {"tokens": [], "error": str(e)}
 
-@app.route('/api/query', methods=['POST'])
-@cross_origin()
-def post_data():
+@app.post("/api/query")
+async def post_data(query_model: QueryModel):
     try:
-        model_name = request.get_json().get("model", None)
-        query = request.get_json().get("query", None)
+        model_name = query_model.model
+        query = query_model.query
         if query is None:
-            return jsonify({"error": "Query was empty"}), 400
+            raise HTTPException(status_code=400, detail="Query was empty")
         
         if model_name is None:
-            return jsonify({"error": "No model set"}), 400
+            raise HTTPException(status_code=400, detail="No model set")
         
-        comp_dev : ComputingDevice = ComputingDevice(model_name, handler)
-        model : Puan = comp_dev.get()
+        comp_dev: ComputingDevice = ComputingDevice(model_name, handler)
+        model: Puan = comp_dev.get()
 
-        if not type(model) == Puan:
-            return jsonify({"error": "Invalid database model"}), 400
+        if not isinstance(model, Puan):
+            raise HTTPException(status_code=400, detail="Invalid database model")
 
         model, solution = Parser(model).evaluate(lexer.lex(query))[-1]
         comp_dev.save(model)
 
-        return jsonify({
+        return {
             "model": model_name,
             "nodes": to_nodes(model, solution),
             "edges": to_edges(model),
             "error": None,
-        })
+        }
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    uvicorn.run(app, host="0.0.0.0", port=os.getenv('PORT', 8000))
