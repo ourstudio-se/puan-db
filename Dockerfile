@@ -31,7 +31,10 @@ ENV PATH /opt/conda/envs/myenv/bin:$PATH
 
 WORKDIR /code
 
-ENV APP_PORT=50051
+ENV APP_PORT=80
+
+# Expose port 80
+EXPOSE 80
 
 COPY ./requirements.txt /code/requirements.txt 
 

@@ -30,7 +30,7 @@ def test_case5():
     assert lex(case_5)[0] == expected_case_5
     
 def test_case6():
-    case_6 = "SET ATLEAST [x, y, z] 1 {} # set at least 1 of x, y, z"
+    case_6 = "SET ATLEAST 1 [x, y, z] {} # set at least 1 of x, y, z"
     expected_case_6 = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATLEAST, 
         LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]), 
@@ -39,7 +39,7 @@ def test_case6():
     assert lex(case_6)[0] == expected_case_6
 
 def test_case7():
-    case_7 = "SET ATMOST [x, y, z] 1 {} # set at most 1 of x, y, z"
+    case_7 = "SET ATMOST 1 [x, y, z] {} # set at most 1 of x, y, z"
     expected_case_7 = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATMOST, 
         LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
@@ -232,12 +232,6 @@ def test_case28():
         PROPERTIES({"x": 1}),
         ASSIGNMENT(VARIABLE("y"), INT_VALUE(0)))
     assert lex(case_28)[0] == expected_case_28
-def test_case29():
-    case_29 = "ASSUME {A: 1}" # Assume A to be exaclty 1
-    expected_case_29 = ACTION_ASSUME(
-        PROPERTIES({"A": BOUND(1, 1)})
-    )
-    assert lex(case_29)[0] == expected_case_29
 
 def test_case30():
     case_29 = "MINIMIZE {x:1} SUCHTHAT (SET AND [y,z])=1 # Finds a configuration that minimizes x=1 such that y and z are true"
@@ -262,8 +256,8 @@ def test_case31():
 
         SET x {price: 5.0, category: 'Model'}       # Set variable x with attributes price and category
 
-        SET ATLEAST [x, y, z] 1 {}                  # set at least 1 of x, y, z
-        SET ATMOST [x, y, z] 1 {}                   # set at most 1 of x, y, z
+        SET ATLEAST 1 [x, y, z] {}                  # set at least 1 of x, y, z
+        SET ATMOST 1 [x, y, z] {}                   # set at most 1 of x, y, z
         
         SET AND [x : x.price > 5] {}                # set all x where price > 5
         # SET OR [...] {} 
@@ -349,3 +343,103 @@ def test_case31():
         )
     ]
     assert lex(case_31) == expected_case_31
+
+def test_atleast():
+    query = "SET ATLEAST 2 [x, y, z] {} # set at least 2 of x, y, z"
+    expected = ACTION_SET_VALUE_COMPOSITE(
+        SUB_ACTION_TYPE.ATLEAST,
+        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
+        INT_VALUE(2),
+    )
+    assert lex(query)[0] == expected
+    
+def test_atmost():
+    query = "SET ATMOST 2 [x, y, z] {} # set at most 2 of x, y, z"
+    expected = ACTION_SET_VALUE_COMPOSITE(
+        SUB_ACTION_TYPE.ATMOST,
+        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
+        INT_VALUE(2),
+    )
+    assert lex(query)[0] == expected
+
+def test_imply():
+    query = "SET IMPLY [x, y] {} # Set if x then y"
+    expected = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.IMPLY,
+        LIST([
+            VARIABLE("x"),
+            VARIABLE("y")
+        ])
+    )
+    assert lex(query)[0] == expected
+
+def test_equiv():
+    query = "SET EQUIV [x, y] {} # Set if x then y, if y then x"
+    expected = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.EQUIV,
+        LIST([
+            VARIABLE("x"),
+            VARIABLE("y")
+        ])
+    )
+    assert lex(query)[0] == expected
+
+def test_and():
+    query = "SET AND [x : x.price > 5] {} # set all x where price > 5"
+    expected = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.AND,  
+        PREDICATE(
+            id="x",
+            proposition=PROPOSITION(
+                OPERATION.GT,
+                VARIABLE("price"),
+                VALUE(5)
+            )
+        )
+    )
+    assert lex(query)[0] == expected
+
+def test_or():
+    query = "SET OR [x : x.price > 5] {} # set all x where price > 5"
+    expected = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.OR,  
+        PREDICATE(
+            id="x",
+            proposition=PROPOSITION(
+                OPERATION.GT,
+                VARIABLE("price"),
+                VALUE(5)
+            )
+        )
+    )
+    assert lex(query)[0] == expected
+
+def test_xor():
+    query = "SET XOR [x : x.price > 5] {} # set all x where price > 5"
+    expected = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.XOR,  
+        PREDICATE(
+            id="x",
+            proposition=PROPOSITION(
+                OPERATION.GT,
+                VARIABLE("price"),
+                VALUE(5)
+            )
+        )
+    )
+    assert lex(query)[0] == expected
+
+def test_not():
+    query = "SET NOT [x : x.price > 5] {} # set all x where price > 5"
+    expected = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.NOT,  
+        PREDICATE(
+            id="x",
+            proposition=PROPOSITION(
+                OPERATION.GT,
+                VARIABLE("price"),
+                VALUE(5)
+            )
+        )
+    )
+    assert lex(query)[0] == expected

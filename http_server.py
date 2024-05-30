@@ -1,11 +1,10 @@
 import os
-import lexer
-import puan_db_parser
 import numpy as np
+import lexer
 from flask import Flask, jsonify, request
 from flask_cors import CORS, cross_origin
-from pldag import Puan, Solution
-from models import PuanDbModel
+from pldag import Puan
+from puan_db_parser import Parser
 from itertools import chain, starmap
 from storage import AzureBlobModelHandler, ComputingDevice
 
@@ -19,20 +18,20 @@ app = Flask(__name__)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-def to_edges(pmodel: PuanDbModel):
+def to_edges(model: Puan):
     return list(
         chain(
             starmap(
                 lambda r,c: {
-                    "source": pmodel.model._icol(c),
-                    "target": pmodel.model._irow(r),
+                    "source": model._icol(c),
+                    "target": model._irow(r),
                 },
-                np.argwhere(pmodel.model._amat)
+                np.argwhere(model._amat)
             )
         )
     )
 
-def to_nodes(pmodel: PuanDbModel, solution = None):
+def to_nodes(model: Puan, solution = None):
 
     def model_or_sol(model: Puan, solution, x):
         if solution:
@@ -47,12 +46,11 @@ def to_nodes(pmodel: PuanDbModel, solution = None):
         map(
             lambda x: {
                 "id": x, 
-                "type": pmodel._sets.get(x, None),
                 "label": x[:5], 
-                "alias": pmodel.model.id_to_alias(x),
-                "bound": dict(zip(["lower", "upper"], model_or_sol(pmodel.model, solution, x)))
+                "alias": model.id_to_alias(x),
+                "bound": dict(zip(["lower", "upper"], model_or_sol(model, solution, x)))
             }, 
-            pmodel.model._imap
+            model._imap
         )
     )
 
@@ -94,7 +92,7 @@ def create_model():
     if model_name in existing_models:
         return jsonify({"error": "Model already exists"}), 400
     
-    model = PuanDbModel(model=Puan())
+    model = Puan()
     handler.save_model(model, model_name)
 
     return jsonify({
@@ -103,42 +101,49 @@ def create_model():
         "edges": []
     })
 
+@app.route('/api/lex', methods=['POST'])
+def lex_query():
+    query = request.get_json().get("query", None)
+    if query is None:
+        return jsonify({"error": "Query was empty"}), 400
+    
+    try:
+        lexed = lexer.lex(query)[0]
+        return jsonify({
+            "lexed": {
+                "type": lexed.__class__.__name__,
+                "content": lexed
+            },
+            "error": None
+        })
+    except Exception as e:
+        return jsonify({"tokens": [], "error": str(e)}), 200
+
 @app.route('/api/query', methods=['POST'])
 @cross_origin()
 def post_data():
     try:
         model_name = request.get_json().get("model", None)
         query = request.get_json().get("query", None)
-        if query is None or model_name is None:
-            return jsonify({"error": "Query or model was empty"}), 400
+        if query is None:
+            return jsonify({"error": "Query was empty"}), 400
+        
+        if model_name is None:
+            return jsonify({"error": "No model set"}), 400
         
         comp_dev : ComputingDevice = ComputingDevice(model_name, handler)
-        model : PuanDbModel = comp_dev.get()
+        model : Puan = comp_dev.get()
 
-        if not type(model) == PuanDbModel:
+        if not type(model) == Puan:
             return jsonify({"error": "Invalid database model"}), 400
 
-        computation_result = model.query(
-            query, 
-            puan_db_parser.Parser(model.model), 
-            lexer.lex,
-        )
+        model, solution = Parser(model).evaluate(lexer.lex(query))[-1]
         comp_dev.save(model)
-
-        if type(computation_result[-1]) == Solution:
-            solution = computation_result[-1]
-        else:
-            solution = model.model.propagate({})
-
-        if type(computation_result[-1]) == PuanDbModel:
-            _model = computation_result[-1]
-        else:
-            _model = model
 
         return jsonify({
             "model": model_name,
-            "nodes": to_nodes(_model, solution),
-            "edges": to_edges(_model),
+            "nodes": to_nodes(model, solution),
+            "edges": to_edges(model),
             "error": None,
         })
     except Exception as e:
