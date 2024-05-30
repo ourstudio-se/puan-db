@@ -1,101 +1,69 @@
 import puan_db_parser
-from pldag import Puan, Solution
+from pldag import Puan, Solver
 from datatypes import *
-model = Puan()
+import pytest
+import numpy as np
 
 def test_case1():
+    model = Puan()
     case_1 = ACTION_SET_PRIMITIVE(VARIABLE("a"))
-    expected_case_1 = puan_db_parser.Node(
-            func=model.set_primitive,
-            args=['a'],
-            kwargs={'properties': {},  # 'properties' is empty because there are no attributes
-                'bound': puan_db_parser.Node(
-                func=complex,
-                args=[],
-                kwargs = {'real':0, 'imag': 1}
-            )}
-        )
-    assert puan_db_parser.Parser(model).parse(case_1) == expected_case_1
+    m, s = puan_db_parser.Parser().evaluate(model, case_1)
+
+    model.set_primitive('a')
+    assert m == model and s == model.propagate({})
     
 def test_case2():
+    model = Puan()
     case_2 = ACTION_SET_PRIMITIVE(VARIABLE("b"), bound=BOUND(0,1))
-    expected_case_2 = puan_db_parser.Node(
-            func=model.set_primitive,
-            args=['b'],
-            kwargs={'properties': {}, 'bound': puan_db_parser.Node(
-                func=complex,
-                args=[],
-                kwargs={'real': 0, 'imag':1}
-            )}
-        )
-    assert puan_db_parser.Parser(model).parse(case_2) == expected_case_2
+    m, s = puan_db_parser.Parser().evaluate(model, case_2)
+    model.set_primitive('b', bound=complex(0,1))
+    assert m == model and s == model.propagate({})
 
 def test_case3():
+    model = Puan()
     case_3 = ACTION_SET_PRIMITIVE(VARIABLE("c"), bound=BOUND(-2, 3))
-    expected_case_3 = puan_db_parser.Node(
-            func=model.set_primitive,
-            args=['c'],
-            kwargs={'properties': {}, 'bound': puan_db_parser.Node(
-                func=complex,
-                args=[],
-                kwargs={'real': -2, 'imag':3}
-            )}
-        )
-    assert puan_db_parser.Parser(model).parse(case_3) == expected_case_3
+    m, s = puan_db_parser.Parser().evaluate(model, case_3)
+    model.set_primitive('c', bound=complex(-2, 3))
+    assert m == model and s == model.propagate({})
 
 def test_case4():
+    model = Puan()
     case_4 = ACTION_SET_PRIMITIVES(LIST([VARIABLE("d"), VARIABLE("e"), VARIABLE("f")]))
-    expected_case_4 = puan_db_parser.Node(
-            func=model.set_primitives,
-            args=[['d', 'e','f']],
-            kwargs={'properties': {}, 'bound': puan_db_parser.Node(
-                func=complex,
-                args=[],
-                kwargs={'real': 0, 'imag':1}
-            )}
-        )
-    assert puan_db_parser.Parser(model).parse(case_4) == expected_case_4
+    m, s = puan_db_parser.Parser().evaluate(model, case_4)
+    model.set_primitives(['d', 'e', 'f'])
+    assert m == model and s == model.propagate({})
 
 def test_case5():
+    model = Puan()
     case_5 = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"price": 5.0, "category": "Model"}))
-    expected_case_5 = puan_db_parser.Node(
-            func=model.set_primitive,
-            args=['x'],
-            kwargs={'properties': {'price': 5.0, 'category': 'Model'}, 'bound': puan_db_parser.Node(
-                func=complex,
-                args=[],
-                kwargs={'real': 0, 'imag':1}
-            )}
-        )
-    assert puan_db_parser.Parser(model).parse(case_5) == expected_case_5
+    m, s = puan_db_parser.Parser().evaluate(model, case_5)
+    model.set_primitive('x', properties={"price": 5.0, "category": "Model"})
+    assert m == model and s == model.propagate({})
     
 def test_case6():
+    model = Puan()
     case_6 = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATLEAST, 
-        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]), 
+        LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]), 
         INT_VALUE(1),
     )
-    expected_case_6 = puan_db_parser.Node(
-            func=model.set_atleast,
-            args=[['x', 'y', 'z'], 1],
-            kwargs={'properties': {}}
-        )
-    assert puan_db_parser.Parser(model).parse(case_6) == expected_case_6
+    m, s = puan_db_parser.Parser().evaluate(model, case_6)
+    model.set_atleast([model.set_primitive('x'), model.set_primitive('y'), model.set_primitive('z')], 1)
+    assert m == model and s == model.propagate({})
 
 def test_case7():
+    model = Puan()
     case_7 = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATMOST, 
-        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
+        LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]),
         INT_VALUE(1),
     )
-    expected_case_7 = puan_db_parser.Node(
-            func=model.set_atmost,
-            args=[['x', 'y', 'z'], 1],
-            kwargs={'properties': {}}
-        )
-    assert puan_db_parser.Parser(model).parse(case_7) == expected_case_7
+    m, s = puan_db_parser.Parser().evaluate(model, case_7)
+    model.set_atmost([model.set_primitive('x'), model.set_primitive('y'), model.set_primitive('z')], 1)
+    assert m == model and s == model.propagate({})
 
 def test_case8():
+    model = Puan()
     case_8 = ACTION_SET_LIST_COMPOSITE(
         SUB_ACTION_TYPE.AND,  
         PREDICATE(
@@ -107,53 +75,40 @@ def test_case8():
             )
         )
     )
-    expectedcase_case_8 = puan_db_parser.Node(
-        func=model.set_and,
-        args=[puan_db_parser.Node(
-                func=puan_db_parser.parse_predicate,
-                args=[model.data, PROPOSITION(
-                        OPERATION.GT,
-                        VARIABLE("price"),
-                        VALUE(5)
-                    )
-                ],
-        )],
-        kwargs={'properties': {}}
-    )
-    assert puan_db_parser.Parser(model).parse(case_8) == expectedcase_case_8
+    m, s = puan_db_parser.Parser().evaluate(model, case_8)
+    model.set_and(model.find(lambda k, v: k == 'price' and v > 5))
+    assert m == model and s == model.propagate({})
 
 
 def test_case9():
+    model = Puan()
     case_9 = ACTION_SET_LIST_COMPOSITE(
         SUB_ACTION_TYPE.IMPLY,
         LIST([
-            VARIABLE("x"),
-            VARIABLE("y")
+            ACTION_SET_PRIMITIVE(VARIABLE("x")),
+            ACTION_SET_PRIMITIVE(VARIABLE("y"))
         ])
     )
-    expectedcase_case_9 = puan_db_parser.Node(
-            func=model.set_imply,
-            args=['x', 'y'],
-            kwargs={'properties': {}}
-        )
-    assert puan_db_parser.Parser(model).parse(case_9) == expectedcase_case_9
-
+    m, s = puan_db_parser.Parser().evaluate(model, case_9)
+    model.set_imply(model.set_primitive('x'), model.set_primitive('y'))
+    assert m == model and s == model.propagate({})
 def test_case10():
+    model = Puan()
     case_10 = ACTION_SET_LIST_COMPOSITE(
         SUB_ACTION_TYPE.EQUIV,
         LIST([
-            VARIABLE("x"),
-            VARIABLE("y")
+            ACTION_SET_PRIMITIVE(VARIABLE("x")),
+            ACTION_SET_PRIMITIVE(VARIABLE("y"))
         ])
     )
-    expectedcase_case_10 = puan_db_parser.Node(
-            func=model.set_equal,
-            args=[['x', 'y']],
-            kwargs={'properties': {}}
-        )
-    assert puan_db_parser.Parser(model).parse(case_10) == expectedcase_case_10
+    m, s = puan_db_parser.Parser().evaluate(model, case_10)
+    model.set_equal([model.set_primitive("x"), model.set_primitive("y")])
+
+    assert m == model and s == model.propagate({})
 
 def test_case11():
+    model = Puan()
+    model.set_primitives(["x", "y", "z"], {'price': 10})
     case_11 = ACTION_SUB(
         PREDICATE(
             id="x",
@@ -164,28 +119,15 @@ def test_case11():
             )
         )
     )
-    expectedcase_case_11 = puan_db_parser.Node(
-            func=model.sub,
-            args=[puan_db_parser.Node(
-                func=puan_db_parser.parse_predicate,
-                args=[model.data, PROPOSITION(
-                    OPERATION.GT,
-                    VARIABLE("price"),
-                    VALUE(7.0)
-                )]
-            )],
-            kwargs={}
-        )
-    assert puan_db_parser.Parser(model).parse(case_11) == expectedcase_case_11
+    m, s = puan_db_parser.Parser().evaluate(model, case_11)
+    m_expected = model.sub(model.find(lambda k, v: k == 'price' and v > 7.0))
+    assert m == m_expected and s == m_expected.propagate({})
 
 def test_case12():
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
     case_12 = ACTION_GET(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
-    expectedcase_case_12 = puan_db_parser.Node(
-            func=model.get,
-            args=[['x', 'y', 'z']],
-        )
-    assert puan_db_parser.Parser(model).parse(case_12) == expectedcase_case_12
-
+    assert np.array_equal(puan_db_parser.Parser().parse(model, case_12)(), np.array([complex(0, 1), complex(0, 1), complex(0, 1)]))  
 def test_case13():
     """
         SET AND [
@@ -193,6 +135,8 @@ def test_case13():
             SET OR [x, z]
         ] # Set complex nested constraint (x OR y) AND (x OR z)
     """
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
     case_13 = ACTION_SET_LIST_COMPOSITE(
         SUB_ACTION_TYPE.AND,
         LIST([
@@ -206,37 +150,23 @@ def test_case13():
             )
         ])
     )
-    expectedcase_case_13 = puan_db_parser.Node(
-        func=model.set_and,
-        args=[
-            [
-                puan_db_parser.Node(
-                    func=model.set_or,
-                    args=[['x', 'y']],
-                    kwargs={'properties': {}}
-                ),
-                puan_db_parser.Node(
-                    func=model.set_or,
-                    args=[['x', 'z']],
-                    kwargs={'properties': {}}
-                )
-            ]
-        ],
-        kwargs={'properties': {}}
-    )
-    assert puan_db_parser.Parser(model).parse(case_13) == expectedcase_case_13
+    m, s = puan_db_parser.Parser().evaluate(model, case_13)
+    model.set_and([model.set_or(['x', 'y']), model.set_or(['x', 'z'])])
+    
+    assert m == model and s == model.propagate({})
 
 def test_case14():
     """GET x # Get variable x's properties and bound"""
+    model = Puan()
+    model.set_primitive("x")
     case_14 = ACTION_GET(VARIABLE("x"))
-    expectedcase_case_14 = puan_db_parser.Node(
-        func=model.get,
-        args=['x'],
-    )
-    assert puan_db_parser.Parser(model).parse(case_14) == expectedcase_case_14
+    assert np.array_equal(puan_db_parser.Parser().parse(model, case_14)(), np.array([complex(0, 1)]))
 
 def test_case15():
     """GET [x : x.price > 5] # Get all x where price > 5"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"], {'price': 10})
+    model.set_primitives(["a", "b", "c"], {'price': 5})
     case_15 = ACTION_GET(
         PREDICATE(
             id="x",
@@ -247,21 +177,14 @@ def test_case15():
             )
         )
     )
-    expectedcase_case_15 = puan_db_parser.Node(
-        func=model.get,
-        args=[puan_db_parser.Node(
-            func=puan_db_parser.parse_predicate,
-            args=[model.data, PROPOSITION(
-                OPERATION.GT,
-                VARIABLE("price"),
-                VALUE(5)
-            )]
-        )],
-    )
-    assert puan_db_parser.Parser(model).parse(case_15) == expectedcase_case_15
+    assert np.array_equal(puan_db_parser.Parser().parse(model, case_15)(),model.get(*model.find(lambda k, v: k == 'price' and v > 5)))
 
 def test_case16():
     """GET [x : type(x) == PRIMITIVE] # Get all x primitive variables"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
+    model.set_and(["x", "y", "z"])
+    
     case_16 = ACTION_GET(
         PREDICATE(
             id="x",
@@ -272,39 +195,28 @@ def test_case16():
             )
         )
     )
-    expectedcase_case_16 = puan_db_parser.Node(
-        func=model.get,
-        args=[puan_db_parser.Node(
-            func=puan_db_parser.parse_predicate,
-            args=[model.data, PROPOSITION(
-                OPERATION.EQ,
-                FUNCTION("type", VARIABLE("x")),
-                DATATYPE.PRIMITIVE,
-            )]
-        )],
-    )
-    assert puan_db_parser.Parser(model).parse(case_16) == expectedcase_case_16
+    assert np.array_equal(puan_db_parser.Parser().parse(model, case_16)(),model.get(*list(filter(lambda id: puan_db_parser.our_type(model, id)==puan_db_parser.DATATYPE.PRIMITIVE, model.ids))))
 
 def test_case17():
     """DEL x # Delete variable x"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
     case_17 = ACTION_DEL(VARIABLE("x"))
-    expectedcase_case_17 =puan_db_parser.Node(
-        func=model.delete,
-        args=['x'],
-    )
-    assert puan_db_parser.Parser(model).parse(case_17) == expectedcase_case_17
-
+    m, s = puan_db_parser.Parser().evaluate(model, case_17)
+    model.delete('x')
+    assert m == model and s == model.propagate({})
 def test_case18():
     """DEL [x, y, z] # Delete variables with ID x, y or z"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
     case_18 = ACTION_DEL(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
-    expectedcase_case_18 = puan_db_parser.Node(
-        func=model.delete,
-        args=[['x', 'y', 'z']],
-    )
-    assert puan_db_parser.Parser(model).parse(case_18) == expectedcase_case_18
-
+    m, s = puan_db_parser.Parser().evaluate(model, case_18)
+    model.delete(*['x', 'y', 'z'])
+    assert m == model and s == model.propagate({})
 def test_case19():
     """DEL [x : (x.price > 10) && (x.type == 'A')] # Delete all x where price > 5 and type is A"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"], {'price': 11})
     case_19 = ACTION_DEL(
         PREDICATE(
             id="x",
@@ -317,117 +229,99 @@ def test_case19():
                 ),
                 PROPOSITION(
                     OPERATION.EQ,
-                    VARIABLE("type"),
-                    VALUE("A")
+                    FUNCTION("type", VARIABLE("x")),
+                    DATATYPE.PRIMITIVE
                 )
             )
         )
     )
-    expectedcase_case_19 = puan_db_parser.Node(
-        func=model.delete,
-        args=[puan_db_parser.Node(
-            func=puan_db_parser.parse_predicate,
-            args=[model.data, PROPOSITION(
-                OPERATION.AND,
-                PROPOSITION(
-                    OPERATION.GT,
-                    VARIABLE("price"),
-                    VALUE(10)
-                ),
-                PROPOSITION(
-                    OPERATION.EQ,
-                    VARIABLE("type"),
-                    VALUE("A")
-                )
-            )]
-        )],
-    )
-    assert puan_db_parser.Parser(model).parse(case_19) == expectedcase_case_19
+    m, s = puan_db_parser.Parser().evaluate(model, case_19)
+    model.delete(*list(filter(lambda id: model.data.get(id).get('price', 0) > 10 and puan_db_parser.our_type(model, id) == DATATYPE.PRIMITIVE, model.ids)))
+    assert m == model and s == model.propagate({})
 def test_case20():
-    case_20 = "SUB [x, y, z] # Create's a sub graph with x, y, z as roots"
+    """SUB [x, y, z] # Create's a sub graph with x, y, z as roots"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
     case_20 = ACTION_SUB(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
-    expectedcase_case_20 = puan_db_parser.Node(
-        func=model.sub,
-        args=[['x', 'y', 'z']],
-    )
-        
-    assert puan_db_parser.Parser(model).parse(case_20) == expectedcase_case_20
+    m, s = puan_db_parser.Parser().evaluate(model, case_20)
+    model.sub(['x', 'y', 'z'])
+    assert m == model and s == model.propagate({})
 def test_case21():
     """CUT A # Cut away all nodes under A"""
-    case_21 = ACTION_CUT(VARIABLE("A"))
-    expectedcase_case_21 = puan_db_parser.Node(
-        func=model.cut,
-        args=['A'],
-    )
-    assert puan_db_parser.Parser(model).parse(case_21) == expectedcase_case_21
+    model = Puan()
+    model.set_primitives(["x", "y", "z"])
+    model.set_and(["x", "y", "z"])
+    case_21 = ACTION_CUT(VARIABLE('b7bf05ec0ed35b049bc6d22e20ce64aaa6014e22'))
+    m, s = puan_db_parser.Parser().evaluate(model, case_21)
+    m_expected = model.cut({model.set_and(["x", "y", "z"]): model.set_and(["x", "y", "z"])})
+    assert m == m_expected and s == m_expected.propagate({})
 def test_case22():
     """CUT [A, {B: 'y'}] # Cut away all nodes under A and B. Rename B to y"""
+    model = Puan()
+    model.set_primitives(["A", "B"])
     case_22 = ACTION_CUT(LIST([VARIABLE("A"), PROPERTIES({"B": "y"})]))
-    expectedcase_case_22 = puan_db_parser.Node(
-        func=model.cut,
-        args=[['A', {'B': 'y'}]],
-    )
-    assert puan_db_parser.Parser(model).parse(case_22) == expectedcase_case_22
+    m, s = puan_db_parser.Parser().evaluate(model, case_22)
+    model.cut({'A': 'A', 'B': 'y'})
+    assert m == model and s == model.propagate({})
 def test_case23():
     """CUT {A: 'x', B: 'y'} # Cut away all nodes under A and B. Rename A to x and B to y"""
+    model = Puan()
+    model.set_primitives(["A", "B"])
     case_23 = ACTION_CUT(PROPERTIES({"A": "x", "B": "y"}))
-    expectedcase_case_23 = puan_db_parser.Node(
-        func=model.cut,
-        args=[{'A': 'x', 'B': 'y'}],
-    )
-    assert puan_db_parser.Parser(model).parse(case_23) == expectedcase_case_23
+    m, s = puan_db_parser.Parser().evaluate(model, case_23)
+    m_expected = model.cut({'A': 'x', 'B': 'y'})
+    assert m == m_expected and s == m_expected.propagate({})
 def test_case24():
     """ASSUME {A: 1..2} # Assume A has tighter bound 1..2 and propagates the change"""
+    model = Puan()
+    model.set_primitive('A', bound=complex(0, 5))
     case_24 = ACTION_ASSUME(
         PROPERTIES({"A": BOUND(1, 2)}))
-    expectedcase_case_24 = puan_db_parser.Node(
-            func=model.propagate,
-            args=[{'A': puan_db_parser.Node(func=complex, args=[], kwargs={'real': 1,'imag': 2})}],
-        )
-    assert puan_db_parser.Parser(model).parse(case_24) == expectedcase_case_24
+    m, s = puan_db_parser.Parser().evaluate(model, case_24)
+    s_expected = model.propagate({'A': complex(1, 2)})
+    assert m == model and s == s_expected
 def test_case25():
     """REDUCE # Reduces the graph by removing all nodes with constant bound"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"], bound=complex(0, 1))
+    model.set_primitives(["a", "b", "c"], bound=complex(1, 1))
     case_25 = ACTION_REDUCE()
-    expectedcase_case_25 = puan_db_parser.Node(
-        func=model.propagate,
-        args=[],
-        kwargs={}
-    )
-    assert puan_db_parser.Parser(model).parse(case_25) == expectedcase_case_25
+    m, s = puan_db_parser.Parser().evaluate(model, case_25)
+    s_expected = model.propagate({})
+    assert m == model and s == s_expected
 def test_case26():
     """PROPAGATE {x: 1..2} # Propagates the change of x=1..2 to all nodes"""
+    model = Puan()
+    model.set_primitives(["x", "y", "z"], bound=complex(0, 1))
     case_26 = ACTION_PROPAGATE(PROPERTIES({"x": BOUND(1, 2)}))
-    expectedcase_case_26 = puan_db_parser.Node(
-        func=model.propagate,
-        args=[{'x': puan_db_parser.Node(
-            func=complex,
-            kwargs={'real': 1, 'imag':2}
-        )}],
-    )
-    assert puan_db_parser.Parser(model).parse(case_26) == expectedcase_case_26
+    m, s = puan_db_parser.Parser().evaluate(model, case_26)
+    s_expected = model.propagate({'x': complex(1, 2)})
+    assert m == model and s == s_expected
+    
 def test_case27():
     """MAXIMIZE {x:1} SUCHTHAT y=1 # Finds a configuration that maximizes x=1 such that y is 1"""
+    model = Puan()
+    model.set_primitives(["x", "y"], bound=complex(0, 1))
+    model.set_or(["x", "y"])
     case_27 = ACTION_MAXIMIZE(PROPERTIES({"x": 1}), ASSIGNMENT(VARIABLE("y"), INT_VALUE(1)))
-    expectedcase_case_27 = puan_db_parser.Node(
-        func=model.solve,
-        args=[[{'x': 1}],
-              {'y': 1}]
-    )
-    assert puan_db_parser.Parser(model).parse(case_27) == expectedcase_case_27
+    _, s = puan_db_parser.Parser().evaluate(model, case_27)
+    s_expected = model.solve([{'x': 1}], {'y': complex(1, 1)}, Solver.GLPK)[0]
+    assert s == s_expected
 def test_case28():
     """MINIMIZE {x:1} SUCHTHAT y=0 # Finds a configuration that minimizes x=1 such that y is 0"""
+    model = Puan()
+    model.set_primitives(["x", "y"], bound=complex(0, 1))
+    model.set_or(["x", "y"])
     case_28 = ACTION_MINIMIZE(
         PROPERTIES({"x": 1}),
         ASSIGNMENT(VARIABLE("y"), INT_VALUE(0)))
-    expectedcase_case_28 = puan_db_parser.Node(
-        func=model.solve,
-        args=[[{'x': 1}],
-              {'y': 0}]
-    )
-    assert puan_db_parser.Parser(model).parse(case_28) == expectedcase_case_28
+    m, s = puan_db_parser.Parser().evaluate(model, case_28)
+    s_expected = model.solve([{'x': 1}], {'y': complex(0, 0)}, Solver.GLPK)[0]
+    assert s == s_expected
 
 def test_case29():
     """MINIMIZE {x:1} SUCHTHAT (SET AND [y,z])=1 # Finds a configuration that minimizes x=1 such that y and z are true"""
+    model = Puan()
     model.set_primitives(['x', 'y', 'z'])
     case_29 = ACTION_MINIMIZE(
         PROPERTIES({"x": 1}),
@@ -439,38 +333,46 @@ def test_case29():
             INT_VALUE(1)
         )
     )
-    expectedcase_case_29 = puan_db_parser.Node(
-        func=model.solve,
-        args=[[{'x': 1}],
-              {puan_db_parser.Node(
-                  func=model.set_and,
-                  args=[['y', 'z']],
-                  kwargs={'properties': {}}
-              ): 1
-              }]
-    )
-    assert puan_db_parser.Parser(model).parse(case_29) == expectedcase_case_29
+    m, s = puan_db_parser.Parser().evaluate(model, case_29)
+    s_expected = model.solve([{'x': 1}], {model.set_and(["y", "z"]): complex(1,1)}, Solver.GLPK)[0]
+    assert s == s_expected
 
 def test_case30():
-    case_30 = [ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1)), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1))]
-    expected_case_30 = ('x', 'y')
-    assert puan_db_parser.Parser(model).parse(case_30)() == expected_case_30
+    model = Puan()
+    case_34 = [ACTION_SET_LIST_COMPOSITE(sub_action=SUB_ACTION_TYPE.OR, arguments=LIST(items=[ACTION_SET_PRIMITIVE(argument=VARIABLE(id='m')), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='n'))])),
+               ACTION_SET_LIST_COMPOSITE(sub_action=SUB_ACTION_TYPE.OR, arguments=LIST(items=[ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x')), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y'))]))]
+    puan_db_parser.Parser().evaluate(model, case_34)[0]
 
 def test_case31():
-    case_31 = ACTION_SET_PRIMITIVE(VARIABLE("a"))
-    model.set_primitive('a') 
-    expected_case_31 = model, model.propagate({})
-    assert puan_db_parser.Parser(model).evaluate(case_31) == expected_case_31
-
-def test_case32():
     model = Puan()
-    case_32 = ACTION_ASSUME(
-        PROPERTIES({"A": BOUND(1, 2)}))
-    model.set_primitive('A', bound=BOUND(0, 5))
-    sol = model.propagate({'A': complex(1, 2)})
-    expectedcase_case_32 = model, sol
-    assert puan_db_parser.Parser(model).evaluate(case_32) == expectedcase_case_32
-
-def test_case33():
-    case_33 = [ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x'), properties=PROPERTIES(properties={}), bound=BOUND(lower=0, upper=1))]
-    puan_db_parser.Parser(model).evaluate(case_33)
+    case_35 = [
+        ACTION_SET_LIST_COMPOSITE(
+            sub_action=SUB_ACTION_TYPE.AND,
+            arguments=LIST(
+                items=[
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x')),
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y')),
+                    ACTION_SET_LIST_COMPOSITE(
+                        sub_action=SUB_ACTION_TYPE.OR,
+                        arguments=LIST(items=[VARIABLE(id='m'), VARIABLE(id='n')]))]),
+        ),
+        ACTION_SET_LIST_COMPOSITE(
+            sub_action=SUB_ACTION_TYPE.AND,
+            arguments=LIST(
+                items=[
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x')),
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y')),
+                    ACTION_SET_LIST_COMPOSITE(
+                        sub_action=SUB_ACTION_TYPE.OR,
+                        arguments=LIST(
+                            items=[
+                                ACTION_SET_PRIMITIVE(argument=VARIABLE(id='m')),
+                                ACTION_SET_PRIMITIVE(argument=VARIABLE(id='n'))
+                            ]),
+                        )]),
+        )
+    ]
+    with pytest.raises(KeyError):
+        model, solution = puan_db_parser.Parser().evaluate(model, case_35[0])
+    model, solution = puan_db_parser.Parser().evaluate(model, case_35[1])
+    assert model._imap == {'x': 0, 'y': 1, 'm': 2, 'n': 3, 'c8f3d9b100e0de8d1e2971cf78ec988d0bc2ed26': 4, '03ae5b8ca446c0fa36b2b4c44374482b9df1c061': 5}

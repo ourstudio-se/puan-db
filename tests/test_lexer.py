@@ -310,3 +310,35 @@ def test_case30():
     """
     full_lexed = lex(full_input)
     assert len(full_lexed) == 34
+
+def test_case31():
+    case_31 = """SET AND [ SET x, SET y, SET OR [ m, n] ]
+    SET AND [ SET x, SET y, SET OR [ SET m, SET n] ] """
+    expected_case_31 = [
+        ACTION_SET_LIST_COMPOSITE(
+            sub_action=SUB_ACTION_TYPE.AND,
+            arguments=LIST(
+                items=[
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x')),
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y')),
+                    ACTION_SET_LIST_COMPOSITE(
+                        sub_action=SUB_ACTION_TYPE.OR,
+                        arguments=LIST(items=[VARIABLE(id='m'), VARIABLE(id='n')]))]),
+        ),
+        ACTION_SET_LIST_COMPOSITE(
+            sub_action=SUB_ACTION_TYPE.AND,
+            arguments=LIST(
+                items=[
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x')),
+                    ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y')),
+                    ACTION_SET_LIST_COMPOSITE(
+                        sub_action=SUB_ACTION_TYPE.OR,
+                        arguments=LIST(
+                            items=[
+                                ACTION_SET_PRIMITIVE(argument=VARIABLE(id='m')),
+                                ACTION_SET_PRIMITIVE(argument=VARIABLE(id='n'))
+                            ]),
+                        )]),
+        )
+    ]
+    assert lex(case_31) == expected_case_31
