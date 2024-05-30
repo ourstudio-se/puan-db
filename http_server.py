@@ -3,7 +3,7 @@ import os
 import numpy as np
 import lexer
 from fastapi import FastAPI
-from pldag import Puan
+from pldag import Puan, Solution
 from puan_db_parser import Parser
 from itertools import chain, starmap
 from storage import AzureBlobModelHandler, ComputingDevice
@@ -43,24 +43,21 @@ def to_edges(model: Puan):
         )
     )
 
-def to_nodes(model: Puan, solution = None):
-
-    def model_or_sol(model: Puan, solution, x):
-        if solution:
-            return int(solution[x].bound.real), int(solution[x].bound.imag)
-        else:
-            return (
-                int(model._dvec[model._imap[x]].real),
-                int(model._dvec[model._imap[x]].imag),
-            )
-
+def to_nodes(model: Puan, solution: Solution):
     return list(
         map(
             lambda x: {
                 "id": x, 
+                "type": "primitive" if x in model.primitives else "composite",
                 "label": x[:5], 
                 "alias": model.id_to_alias(x),
-                "bound": dict(zip(["lower", "upper"], model_or_sol(model, solution, x)))
+                "bound": {
+                    "lower": int(solution[x].bound.real),
+                    "upper": int(solution[x].bound.imag),
+                },
+                "properties": model.data.get(x, {}),
+                "bias": int(model._bvec[model._row(x)].real) if x in model.composites else None,
+                "negated": bool(model._nvec[model._row(x)]) if x in model.composites else None,
             }, 
             model._imap
         )
@@ -75,7 +72,7 @@ def get_model(model_name):
     if model is None:
         return Response(content="Model not found", status_code=404)
     
-    nodes = to_nodes(model)
+    nodes = to_nodes(model, model.propagate({}))
     edges = to_edges(model)
     
     return {
