@@ -7,7 +7,7 @@ import numpy as np
 def test_case1():
     model = Puan()
     case_1 = ACTION_SET_PRIMITIVE(VARIABLE("a"))
-    m, s = puan_db_parser.Parser().evaluate(model, case_1)
+    m, s = puan_db_parser.Parser(model).evaluate(case_1)
 
     model.set_primitive('a')
     assert m == model and s == model.propagate({})
@@ -15,28 +15,28 @@ def test_case1():
 def test_case2():
     model = Puan()
     case_2 = ACTION_SET_PRIMITIVE(VARIABLE("b"), bound=BOUND(0,1))
-    m, s = puan_db_parser.Parser().evaluate(model, case_2)
+    m, s = puan_db_parser.Parser(model).evaluate(case_2)
     model.set_primitive('b', bound=complex(0,1))
     assert m == model and s == model.propagate({})
 
 def test_case3():
     model = Puan()
     case_3 = ACTION_SET_PRIMITIVE(VARIABLE("c"), bound=BOUND(-2, 3))
-    m, s = puan_db_parser.Parser().evaluate(model, case_3)
+    m, s = puan_db_parser.Parser(model).evaluate(case_3)
     model.set_primitive('c', bound=complex(-2, 3))
     assert m == model and s == model.propagate({})
 
 def test_case4():
     model = Puan()
     case_4 = ACTION_SET_PRIMITIVES(LIST([VARIABLE("d"), VARIABLE("e"), VARIABLE("f")]))
-    m, s = puan_db_parser.Parser().evaluate(model, case_4)
+    m, s = puan_db_parser.Parser(model).evaluate(case_4)
     model.set_primitives(['d', 'e', 'f'])
     assert m == model and s == model.propagate({})
 
 def test_case5():
     model = Puan()
     case_5 = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"price": 5.0, "category": "Model"}))
-    m, s = puan_db_parser.Parser().evaluate(model, case_5)
+    m, s = puan_db_parser.Parser(model).evaluate(case_5)
     model.set_primitive('x', properties={"price": 5.0, "category": "Model"})
     assert m == model and s == model.propagate({})
     
@@ -47,7 +47,7 @@ def test_case6():
         LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]), 
         INT_VALUE(1),
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_6)
+    m, s = puan_db_parser.Parser(model).evaluate(case_6)
     model.set_atleast([model.set_primitive('x'), model.set_primitive('y'), model.set_primitive('z')], 1)
     assert m == model and s == model.propagate({})
 
@@ -58,7 +58,7 @@ def test_case7():
         LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]),
         INT_VALUE(1),
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_7)
+    m, s = puan_db_parser.Parser(model).evaluate(case_7)
     model.set_atmost([model.set_primitive('x'), model.set_primitive('y'), model.set_primitive('z')], 1)
     assert m == model and s == model.propagate({})
 
@@ -75,7 +75,7 @@ def test_case8():
             )
         )
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_8)
+    m, s = puan_db_parser.Parser(model).evaluate(case_8)
     model.set_and(model.find(lambda k, v: k == 'price' and v > 5))
     assert m == model and s == model.propagate({})
 
@@ -89,7 +89,7 @@ def test_case9():
             ACTION_SET_PRIMITIVE(VARIABLE("y"))
         ])
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_9)
+    m, s = puan_db_parser.Parser(model).evaluate(case_9)
     model.set_imply(model.set_primitive('x'), model.set_primitive('y'))
     assert m == model and s == model.propagate({})
 def test_case10():
@@ -101,7 +101,7 @@ def test_case10():
             ACTION_SET_PRIMITIVE(VARIABLE("y"))
         ])
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_10)
+    m, s = puan_db_parser.Parser(model).evaluate(case_10)
     model.set_equal([model.set_primitive("x"), model.set_primitive("y")])
 
     assert m == model and s == model.propagate({})
@@ -119,7 +119,7 @@ def test_case11():
             )
         )
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_11)
+    m, s = puan_db_parser.Parser(model).evaluate(case_11)
     m_expected = model.sub(model.find(lambda k, v: k == 'price' and v > 7.0))
     assert m == m_expected and s == m_expected.propagate({})
 
@@ -127,7 +127,7 @@ def test_case12():
     model = Puan()
     model.set_primitives(["x", "y", "z"])
     case_12 = ACTION_GET(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
-    assert np.array_equal(puan_db_parser.Parser().parse(model, case_12)(), np.array([complex(0, 1), complex(0, 1), complex(0, 1)]))  
+    assert np.array_equal(puan_db_parser.Parser(model).parse(case_12)(), np.array([complex(0, 1), complex(0, 1), complex(0, 1)]))  
 def test_case13():
     """
         SET AND [
@@ -150,7 +150,7 @@ def test_case13():
             )
         ])
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_13)
+    m, s = puan_db_parser.Parser(model).evaluate(case_13)
     model.set_and([model.set_or(['x', 'y']), model.set_or(['x', 'z'])])
     
     assert m == model and s == model.propagate({})
@@ -160,7 +160,7 @@ def test_case14():
     model = Puan()
     model.set_primitive("x")
     case_14 = ACTION_GET(VARIABLE("x"))
-    assert np.array_equal(puan_db_parser.Parser().parse(model, case_14)(), np.array([complex(0, 1)]))
+    assert np.array_equal(puan_db_parser.Parser(model).parse(case_14)(), np.array([complex(0, 1)]))
 
 def test_case15():
     """GET [x : x.price > 5] # Get all x where price > 5"""
@@ -177,7 +177,7 @@ def test_case15():
             )
         )
     )
-    assert np.array_equal(puan_db_parser.Parser().parse(model, case_15)(),model.get(*model.find(lambda k, v: k == 'price' and v > 5)))
+    assert np.array_equal(puan_db_parser.Parser(model).parse(case_15)(),model.get(*model.find(lambda k, v: k == 'price' and v > 5)))
 
 def test_case16():
     """GET [x : type(x) == PRIMITIVE] # Get all x primitive variables"""
@@ -195,14 +195,14 @@ def test_case16():
             )
         )
     )
-    assert np.array_equal(puan_db_parser.Parser().parse(model, case_16)(),model.get(*list(filter(lambda id: puan_db_parser.our_type(model, id)==puan_db_parser.DATATYPE.PRIMITIVE, model.ids))))
+    assert np.array_equal(puan_db_parser.Parser(model).parse(case_16)(),model.get(*list(filter(lambda id: puan_db_parser.our_type(model, id)==puan_db_parser.DATATYPE.PRIMITIVE, model.ids))))
 
 def test_case17():
     """DEL x # Delete variable x"""
     model = Puan()
     model.set_primitives(["x", "y", "z"])
     case_17 = ACTION_DEL(VARIABLE("x"))
-    m, s = puan_db_parser.Parser().evaluate(model, case_17)
+    m, s = puan_db_parser.Parser(model).evaluate(case_17)
     model.delete('x')
     assert m == model and s == model.propagate({})
 def test_case18():
@@ -210,7 +210,7 @@ def test_case18():
     model = Puan()
     model.set_primitives(["x", "y", "z"])
     case_18 = ACTION_DEL(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
-    m, s = puan_db_parser.Parser().evaluate(model, case_18)
+    m, s = puan_db_parser.Parser(model).evaluate(case_18)
     model.delete(*['x', 'y', 'z'])
     assert m == model and s == model.propagate({})
 def test_case19():
@@ -235,7 +235,7 @@ def test_case19():
             )
         )
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_19)
+    m, s = puan_db_parser.Parser(model).evaluate(case_19)
     model.delete(*list(filter(lambda id: model.data.get(id).get('price', 0) > 10 and puan_db_parser.our_type(model, id) == DATATYPE.PRIMITIVE, model.ids)))
     assert m == model and s == model.propagate({})
 def test_case20():
@@ -243,7 +243,7 @@ def test_case20():
     model = Puan()
     model.set_primitives(["x", "y", "z"])
     case_20 = ACTION_SUB(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
-    m, s = puan_db_parser.Parser().evaluate(model, case_20)
+    m, s = puan_db_parser.Parser(model).evaluate(case_20)
     model.sub(['x', 'y', 'z'])
     assert m == model and s == model.propagate({})
 def test_case21():
@@ -252,7 +252,7 @@ def test_case21():
     model.set_primitives(["x", "y", "z"])
     model.set_and(["x", "y", "z"])
     case_21 = ACTION_CUT(VARIABLE('b7bf05ec0ed35b049bc6d22e20ce64aaa6014e22'))
-    m, s = puan_db_parser.Parser().evaluate(model, case_21)
+    m, s = puan_db_parser.Parser(model).evaluate(case_21)
     m_expected = model.cut({model.set_and(["x", "y", "z"]): model.set_and(["x", "y", "z"])})
     assert m == m_expected and s == m_expected.propagate({})
 def test_case22():
@@ -260,7 +260,7 @@ def test_case22():
     model = Puan()
     model.set_primitives(["A", "B"])
     case_22 = ACTION_CUT(LIST([VARIABLE("A"), PROPERTIES({"B": "y"})]))
-    m, s = puan_db_parser.Parser().evaluate(model, case_22)
+    m, s = puan_db_parser.Parser(model).evaluate(case_22)
     model.cut({'A': 'A', 'B': 'y'})
     assert m == model and s == model.propagate({})
 def test_case23():
@@ -268,7 +268,7 @@ def test_case23():
     model = Puan()
     model.set_primitives(["A", "B"])
     case_23 = ACTION_CUT(PROPERTIES({"A": "x", "B": "y"}))
-    m, s = puan_db_parser.Parser().evaluate(model, case_23)
+    m, s = puan_db_parser.Parser(model).evaluate(case_23)
     m_expected = model.cut({'A': 'x', 'B': 'y'})
     assert m == m_expected and s == m_expected.propagate({})
 def test_case24():
@@ -277,7 +277,7 @@ def test_case24():
     model.set_primitive('A', bound=complex(0, 5))
     case_24 = ACTION_ASSUME(
         PROPERTIES({"A": BOUND(1, 2)}))
-    m, s = puan_db_parser.Parser().evaluate(model, case_24)
+    m, s = puan_db_parser.Parser(model).evaluate(case_24)
     s_expected = model.propagate({'A': complex(1, 2)})
     assert m == model and s == s_expected
 def test_case25():
@@ -286,7 +286,7 @@ def test_case25():
     model.set_primitives(["x", "y", "z"], bound=complex(0, 1))
     model.set_primitives(["a", "b", "c"], bound=complex(1, 1))
     case_25 = ACTION_REDUCE()
-    m, s = puan_db_parser.Parser().evaluate(model, case_25)
+    m, s = puan_db_parser.Parser(model).evaluate(case_25)
     s_expected = model.propagate({})
     assert m == model and s == s_expected
 def test_case26():
@@ -294,7 +294,7 @@ def test_case26():
     model = Puan()
     model.set_primitives(["x", "y", "z"], bound=complex(0, 1))
     case_26 = ACTION_PROPAGATE(PROPERTIES({"x": BOUND(1, 2)}))
-    m, s = puan_db_parser.Parser().evaluate(model, case_26)
+    m, s = puan_db_parser.Parser(model).evaluate(case_26)
     s_expected = model.propagate({'x': complex(1, 2)})
     assert m == model and s == s_expected
     
@@ -304,7 +304,7 @@ def test_case27():
     model.set_primitives(["x", "y"], bound=complex(0, 1))
     model.set_or(["x", "y"])
     case_27 = ACTION_MAXIMIZE(PROPERTIES({"x": 1}), ASSIGNMENT(VARIABLE("y"), INT_VALUE(1)))
-    _, s = puan_db_parser.Parser().evaluate(model, case_27)
+    _, s = puan_db_parser.Parser(model).evaluate(case_27)
     s_expected = model.solve([{'x': 1}], {'y': complex(1, 1)}, Solver.GLPK)[0]
     assert s == s_expected
 def test_case28():
@@ -315,7 +315,7 @@ def test_case28():
     case_28 = ACTION_MINIMIZE(
         PROPERTIES({"x": 1}),
         ASSIGNMENT(VARIABLE("y"), INT_VALUE(0)))
-    m, s = puan_db_parser.Parser().evaluate(model, case_28)
+    m, s = puan_db_parser.Parser(model).evaluate(case_28)
     s_expected = model.solve([{'x': 1}], {'y': complex(0, 0)}, Solver.GLPK)[0]
     assert s == s_expected
 
@@ -333,7 +333,7 @@ def test_case29():
             INT_VALUE(1)
         )
     )
-    m, s = puan_db_parser.Parser().evaluate(model, case_29)
+    m, s = puan_db_parser.Parser(model).evaluate(case_29)
     s_expected = model.solve([{'x': 1}], {model.set_and(["y", "z"]): complex(1,1)}, Solver.GLPK)[0]
     assert s == s_expected
 
@@ -341,7 +341,7 @@ def test_case30():
     model = Puan()
     case_34 = [ACTION_SET_LIST_COMPOSITE(sub_action=SUB_ACTION_TYPE.OR, arguments=LIST(items=[ACTION_SET_PRIMITIVE(argument=VARIABLE(id='m')), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='n'))])),
                ACTION_SET_LIST_COMPOSITE(sub_action=SUB_ACTION_TYPE.OR, arguments=LIST(items=[ACTION_SET_PRIMITIVE(argument=VARIABLE(id='x')), ACTION_SET_PRIMITIVE(argument=VARIABLE(id='y'))]))]
-    puan_db_parser.Parser().evaluate(model, case_34)[0]
+    puan_db_parser.Parser(model).evaluate(case_34)[0]
 
 def test_case31():
     model = Puan()
@@ -373,6 +373,6 @@ def test_case31():
         )
     ]
     with pytest.raises(KeyError):
-        model, solution = puan_db_parser.Parser().evaluate(model, case_35[0])
-    model, solution = puan_db_parser.Parser().evaluate(model, case_35[1])
+        model, solution = puan_db_parser.Parser(model).evaluate(case_35[0])
+    model, solution = puan_db_parser.Parser(model).evaluate(case_35[1])
     assert model._imap == {'x': 0, 'y': 1, 'm': 2, 'n': 3, 'c8f3d9b100e0de8d1e2971cf78ec988d0bc2ed26': 4, '03ae5b8ca446c0fa36b2b4c44374482b9df1c061': 5}
