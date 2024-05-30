@@ -323,7 +323,7 @@ def lex_action(inp):
         elif len(lexed) == 4:
             arg0, arg1, arg2, arg3 = lexed
             if type(arg0) == SUB_ACTION_TYPE:
-                return ACTION_SET_VALUE_COMPOSITE(arg0, arg1, arg2, arg3)
+                return ACTION_SET_VALUE_COMPOSITE(arg0, arg2, arg1, arg3)
             else:
                 raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
         else:
