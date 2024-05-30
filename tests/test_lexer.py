@@ -232,8 +232,14 @@ def test_case28():
         PROPERTIES({"x": 1}),
         ASSIGNMENT(VARIABLE("y"), INT_VALUE(0)))
     assert lex(case_28)[0] == expected_case_28
-
 def test_case29():
+    case_29 = "ASSUME {A: 1}" # Assume A to be exaclty 1
+    expected_case_29 = ACTION_ASSUME(
+        PROPERTIES({"A": BOUND(1, 1)})
+    )
+    assert lex(case_29)[0] == expected_case_29
+
+def test_case30():
     case_29 = "MINIMIZE {x:1} SUCHTHAT (SET AND [y,z])=1 # Finds a configuration that minimizes x=1 such that y and z are true"
     model.set_primitives(['x', 'y', 'z'])
     expected_case_29 = ACTION_MINIMIZE(
@@ -247,7 +253,7 @@ def test_case29():
         )
     )
     assert lex(case_29)[0] == expected_case_29
-def test_case30():
+def test_case31():
     full_input = """
         SET a                                       # Set boolean variable a with no attributes
         SET b {}                                    # Set boolean variable b with no attributes
@@ -300,6 +306,7 @@ def test_case30():
 
 
         ASSUME {A: 1..2}                            # Assume A has tighter bound 1..2 and propagates the change
+        ASSUME {A: 1}                               # Assume A to be exaclty 1
         REDUCE                                      # Reduces the graph by removing all nodes with constant bound
 
 
