@@ -1,20 +1,45 @@
-# Use the official Python image from the Docker Hub
-FROM python:3.9-slim
+FROM --platform=linux/amd64 ubuntu:20.04
 
-# Set the working directory in the container
-WORKDIR /app
+# Install basic dependencies
+RUN apt-get update && \
+    apt-get install -y wget curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file into the container at /app
-COPY requirements.txt .
+# Download and install Miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
+    /bin/bash miniconda.sh -b -p /opt/conda && \
+    rm miniconda.sh && \
+    /opt/conda/bin/conda clean -afy
 
-# Install any dependencies specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Add conda to PATH
+ENV PATH /opt/conda/bin:$PATH
 
-# Copy the rest of the application code into the container at /app
-COPY . .
+# Install additional dependencies
+RUN apt-get update && \
+    apt-get install -y python3-dev libblas-dev liblapack-dev libatlas-base-dev gfortran && \
+    rm -rf /var/lib/apt/lists/*
 
-# Expose port 8000 for the app to be accessible
-EXPOSE 8000
+# Create a conda environment and install Python and cvxopt
+RUN conda create -n myenv python=3.9 -y 
+RUN conda conda init & activate myenv
+RUN conda install -c conda-forge cvxopt
 
-# Command to run the FastAPI app using uvicorn
-CMD ["uvicorn", "app.http_server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Activate the conda environment
+SHELL ["/bin/bash", "-c"]
+RUN echo "conda activate myenv" >> ~/.bashrc
+ENV PATH /opt/conda/envs/myenv/bin:$PATH
+
+WORKDIR /code
+
+ENV APP_PORT=80
+
+# Expose port 80
+EXPOSE 80
+
+COPY ./requirements.txt /code/requirements.txt 
+
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY ./ /code
+
+CMD ["python", "http_server.py"]
