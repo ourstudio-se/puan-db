@@ -44,8 +44,8 @@ def test_case6():
     model = Puan()
     case_6 = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATLEAST, 
-        LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]), 
         INT_VALUE(1),
+        LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]), 
     )
     m, s = puan_db_parser.Parser(model).evaluate(case_6)
     model.set_atleast([model.set_primitive('x'), model.set_primitive('y'), model.set_primitive('z')], 1)
@@ -55,8 +55,8 @@ def test_case7():
     model = Puan()
     case_7 = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATMOST, 
-        LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]),
         INT_VALUE(1),
+        LIST([ACTION_SET_PRIMITIVE(VARIABLE("x")), ACTION_SET_PRIMITIVE(VARIABLE("y")), ACTION_SET_PRIMITIVE(VARIABLE("z"))]),
     )
     m, s = puan_db_parser.Parser(model).evaluate(case_7)
     model.set_atmost([model.set_primitive('x'), model.set_primitive('y'), model.set_primitive('z')], 1)
@@ -376,3 +376,22 @@ def test_case31():
         model, solution = puan_db_parser.Parser(model).evaluate(case_35[0])
     model, solution = puan_db_parser.Parser(model).evaluate(case_35[1])
     assert model._imap == {'x': 0, 'y': 1, 'm': 2, 'n': 3, 'c8f3d9b100e0de8d1e2971cf78ec988d0bc2ed26': 4, '03ae5b8ca446c0fa36b2b4c44374482b9df1c061': 5}
+
+def test_case32():
+    model = Puan()
+    model.set_primitive('x', properties={"price": 10})
+    model.set_primitive('y', properties={"price": 5})
+    case_32 = ACTION_SET_LIST_COMPOSITE(
+        SUB_ACTION_TYPE.NOT,  
+        PREDICATE(
+            id="x",
+            proposition=PROPOSITION(
+                OPERATION.GT,
+                VARIABLE("price"),
+                VALUE(5)
+            )
+        )
+    )
+    m, s = puan_db_parser.Parser(model).evaluate(case_32)
+    model.set_not(model.find(lambda k, v: k == 'price' and v > 5))
+    assert m == model and s == model.propagate({})

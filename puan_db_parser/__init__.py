@@ -128,18 +128,21 @@ class Parser:
             return [list(map(self.parse, token.arguments.items)), self.arguments(token.value)], self.arguments(token.properties)[1]
         elif isinstance(token, ACTION_SET_LIST_COMPOSITE):
             if isinstance(token.arguments, PREDICATE):
-                return [self.parse(token.arguments)], self.arguments(token.properties)[1]
+                return [self.parse(token.arguments)], {}#self.arguments(token.properties)[1]
             elif token.sub_action==SUB_ACTION_TYPE.IMPLY:
-                return [self.parse(token.arguments.items[0]), self.parse(token.arguments.items[1])], self.arguments(token.properties)[1]
+                return [self.parse(token.arguments.items[0]), self.parse(token.arguments.items[1])], {} #self.arguments(token.properties)[1]
             else:
-                return [list(map(self.parse, token.arguments.items))], self.arguments(token.properties)[1]
+                return [list(map(self.parse, token.arguments.items))], {}#self.arguments(token.properties)[1]
         elif isinstance(token, (ACTION_MAXIMIZE, ACTION_MINIMIZE)):
-            if isinstance(token.argument, LIST):
+            if isinstance(token.argument, (LIST, PREDICATE)):
                 return [self.arguments(token.argument)[0], self.parse(token.suchthat), Solver.GLPK], {}
             return [[self.arguments(token.argument)[0]], self.parse(token.suchthat), Solver.GLPK], {}
         elif "argument" in token.__dict__: # token is ACTION_GET, ACTION_DEL, ACTION_SUB, ACTION_CUT
             if isinstance(token, (ACTION_GET, ACTION_DEL)):
-                return self.parse(token.argument), {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
+                if isinstance(token.argument, (LIST, PREDICATE)):
+                    return self.parse(token.argument), {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
+                else:
+                    return [self.parse(token.argument)], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
             elif isinstance(token, ACTION_CUT):
                 if isinstance(token.argument, VARIABLE):
                     return [{token.argument.id: token.argument.id}], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}

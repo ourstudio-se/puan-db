@@ -124,8 +124,8 @@ class ACTION_SET_LIST_COMPOSITE:
 @dataclass
 class ACTION_SET_VALUE_COMPOSITE:
     sub_action: SUB_ACTION_TYPE
-    arguments: LIST_PREDICATE
     value: VALUE
+    arguments: LIST_PREDICATE
     properties: PROPERTIES = field(default_factory=PROPERTIES)
 
 @dataclass
