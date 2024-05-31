@@ -117,7 +117,8 @@ def lex_range(token):
     return BOUND(*map(literal_eval, token.split("..")))
 
 def lex_prop(prop):
-    key, value = prop.split(":")
+    fsep = prop.find(":")
+    key, value = prop[:fsep].strip(), prop[fsep+1:].strip()
     if ".." in value:
         return (key.strip(), lex_range(value.strip()))
     return (key.strip(), literal_eval(value.strip()))

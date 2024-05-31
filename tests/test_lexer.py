@@ -465,6 +465,10 @@ def test_set_primitive():
     expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"price": 5.0, "category": "Model"}), bound=BOUND(-2, 3))
     assert lex(query)[0] == expected
 
+    query = "SET x {text: 'hej : pa : dig'}"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"text": "hej : pa : dig"}))
+    assert lex(query)[0] == expected
+
 def test_set_primitives():
     query = "SET [x, y, z] # Set boolean variables x, y, z with no attributes"
     expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
