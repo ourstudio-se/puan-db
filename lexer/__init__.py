@@ -300,9 +300,19 @@ def lex_action(inp):
                 return ACTION_SET_LIST_COMPOSITE(arg0, arg1)
             elif type(arg0) in [VARIABLE, LIST]:
                 if type(arg0) == LIST:
-                    return ACTION_SET_PRIMITIVES(arg0, arg1)
+                    if type(arg1) == PROPERTIES:
+                        return ACTION_SET_PRIMITIVES(arg0, arg1)
+                    elif type(arg1) == BOUND:
+                        return ACTION_SET_PRIMITIVES(arg0, bound=arg1)
+                    else:
+                        raise ValueError(f"Invalid SET action: Second argument {arg1} is invalid.")
                 elif type(arg0) == VARIABLE:
-                    return ACTION_SET_PRIMITIVE(arg0, arg1)
+                    if type(arg1) == PROPERTIES:
+                        return ACTION_SET_PRIMITIVE(arg0, arg1)
+                    elif type(arg1) == BOUND:
+                        return ACTION_SET_PRIMITIVE(arg0, bound=arg1)
+                    else:
+                        raise ValueError(f"Invalid SET action: Second argument {arg1} is invalid.")
                 else:
                     raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
             else:
