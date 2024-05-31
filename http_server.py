@@ -87,7 +87,8 @@ def get_models():
 
 @app.post('/api/models')
 async def create_model(request: Request):
-    model_name = await request.json().get("model", None)
+    model_name = await request.json()
+    model_name = model_name.get("model", None)
     if model_name is None:
         raise HTTPException(status_code=400, detail="Model name was empty")
 

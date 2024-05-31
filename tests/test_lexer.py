@@ -348,8 +348,8 @@ def test_atleast():
     query = "SET ATLEAST 2 [x, y, z] {} # set at least 2 of x, y, z"
     expected = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATLEAST,
-        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
         INT_VALUE(2),
+        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
     )
     assert lex(query)[0] == expected
     
@@ -357,8 +357,8 @@ def test_atmost():
     query = "SET ATMOST 2 [x, y, z] {} # set at most 2 of x, y, z"
     expected = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATMOST,
-        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
         INT_VALUE(2),
+        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
     )
     assert lex(query)[0] == expected
 

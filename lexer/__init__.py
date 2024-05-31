@@ -321,6 +321,8 @@ def lex_action(inp):
         elif len(lexed) == 3:
             arg0, arg1, arg2 = lexed
             if type(arg0) == SUB_ACTION_TYPE:
+                if arg0 == SUB_ACTION_TYPE.ATLEAST or arg0 == SUB_ACTION_TYPE.ATMOST:
+                    return ACTION_SET_VALUE_COMPOSITE(arg0, arg1, arg2)
                 return ACTION_SET_LIST_COMPOSITE(arg0, arg1, arg2)
             elif type(arg0) in [VARIABLE, LIST]:
                 if type(arg0) == LIST:
@@ -334,7 +336,7 @@ def lex_action(inp):
         elif len(lexed) == 4:
             arg0, arg1, arg2, arg3 = lexed
             if type(arg0) == SUB_ACTION_TYPE:
-                return ACTION_SET_VALUE_COMPOSITE(arg0, arg2, arg1, arg3)
+                return ACTION_SET_VALUE_COMPOSITE(arg0, arg1, arg2, arg3)
             else:
                 raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
         else:
