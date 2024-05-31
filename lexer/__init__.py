@@ -117,7 +117,8 @@ def lex_range(token):
     return BOUND(*map(literal_eval, token.split("..")))
 
 def lex_prop(prop):
-    key, value = prop.split(":")
+    fsep = prop.find(":")
+    key, value = prop[:fsep].strip(), prop[fsep+1:].strip()
     if ".." in value:
         return (key.strip(), lex_range(value.strip()))
     return (key.strip(), literal_eval(value.strip()))
@@ -300,9 +301,19 @@ def lex_action(inp):
                 return ACTION_SET_LIST_COMPOSITE(arg0, arg1)
             elif type(arg0) in [VARIABLE, LIST]:
                 if type(arg0) == LIST:
-                    return ACTION_SET_PRIMITIVES(arg0, arg1)
+                    if type(arg1) == PROPERTIES:
+                        return ACTION_SET_PRIMITIVES(arg0, arg1)
+                    elif type(arg1) == BOUND:
+                        return ACTION_SET_PRIMITIVES(arg0, bound=arg1)
+                    else:
+                        raise ValueError(f"Invalid SET action: Second argument {arg1} is invalid.")
                 elif type(arg0) == VARIABLE:
-                    return ACTION_SET_PRIMITIVE(arg0, arg1)
+                    if type(arg1) == PROPERTIES:
+                        return ACTION_SET_PRIMITIVE(arg0, arg1)
+                    elif type(arg1) == BOUND:
+                        return ACTION_SET_PRIMITIVE(arg0, bound=arg1)
+                    else:
+                        raise ValueError(f"Invalid SET action: Second argument {arg1} is invalid.")
                 else:
                     raise ValueError(f"Invalid SET action: First argument {arg0} is invalid.")
             else:
@@ -310,6 +321,8 @@ def lex_action(inp):
         elif len(lexed) == 3:
             arg0, arg1, arg2 = lexed
             if type(arg0) == SUB_ACTION_TYPE:
+                if arg0 == SUB_ACTION_TYPE.ATLEAST or arg0 == SUB_ACTION_TYPE.ATMOST:
+                    return ACTION_SET_VALUE_COMPOSITE(arg0, arg1, arg2)
                 return ACTION_SET_LIST_COMPOSITE(arg0, arg1, arg2)
             elif type(arg0) in [VARIABLE, LIST]:
                 if type(arg0) == LIST:

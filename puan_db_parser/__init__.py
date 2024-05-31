@@ -32,9 +32,9 @@ class Node:
         return hash(self())
 
 class Parser:
-    def parse(self, model, tokens):
-        if not 'model' in self.__dict__:
-            self.model = deepcopy(model)
+    def __init__(self, model: Puan):
+        self.model = deepcopy(model)
+    def parse(self, tokens):
         if isinstance(tokens, PROPERTIES):
             return self.arguments(tokens)[0]
         elif isinstance(tokens, LIST):
@@ -52,13 +52,13 @@ class Parser:
                     lambda *a: a,
                     list(
                         map(
-                            partial(self.parse, self.model),
+                            self.parse,
                             tokens
                         )
                     )
                 )
         elif isinstance(tokens, dict):
-            return {self.parse(self.model, k): self.parse(self.model, v) for k, v in tokens.items()}
+            return {self.parse(k): self.parse(v) for k, v in tokens.items()}
         elif isinstance(tokens, (str, int, float, bool)):
             return tokens
         else:
@@ -121,32 +121,35 @@ class Parser:
         if isinstance(token, (ACTION_ASSUME, ACTION_PROPAGATE)):
             return [self.arguments(token.argument)[0]], {}
         elif isinstance(token, ACTION_SET_PRIMITIVE):
-            return [self.parse(self.model, token.argument)], self.arguments(token.properties)[1] | {'bound': self.action(token.bound)}
+            return [self.parse(token.argument)], self.arguments(token.properties)[1] | {'bound': self.action(token.bound)}
         elif isinstance(token, ACTION_SET_PRIMITIVES):
-            return [list(map(partial(self.parse, self.model), token.arguments.items))], self.arguments(token.properties)[1] | {'bound': self.action(token.bound)}
+            return [list(map(self.parse, token.arguments.items))], self.arguments(token.properties)[1] | {'bound': self.action(token.bound)}
         elif isinstance(token, ACTION_SET_VALUE_COMPOSITE):
-            return [list(map(partial(self.parse, self.model), token.arguments.items)), self.arguments(token.value)], self.arguments(token.properties)[1]
+            return [list(map(self.parse, token.arguments.items)), self.arguments(token.value)], self.arguments(token.properties)[1]
         elif isinstance(token, ACTION_SET_LIST_COMPOSITE):
             if isinstance(token.arguments, PREDICATE):
-                return [self.parse(self.model, token.arguments)], self.arguments(token.properties)[1]
+                return [self.parse(token.arguments)], {}#self.arguments(token.properties)[1]
             elif token.sub_action==SUB_ACTION_TYPE.IMPLY:
-                return [self.parse(self.model, token.arguments.items[0]), self.parse(self.model, token.arguments.items[1])], self.arguments(token.properties)[1]
+                return [self.parse(token.arguments.items[0]), self.parse(token.arguments.items[1])], {} #self.arguments(token.properties)[1]
             else:
-                return [list(map(partial(self.parse, self.model), token.arguments.items))], self.arguments(token.properties)[1]
+                return [list(map(self.parse, token.arguments.items))], {}#self.arguments(token.properties)[1]
         elif isinstance(token, (ACTION_MAXIMIZE, ACTION_MINIMIZE)):
-            if isinstance(token.argument, LIST):
-                return [self.arguments(token.argument)[0], self.parse(self.model, token.suchthat), Solver.GLPK], {}
-            return [[self.arguments(token.argument)[0]], self.parse(self.model, token.suchthat), Solver.GLPK], {}
+            if isinstance(token.argument, (LIST, PREDICATE)):
+                return [self.arguments(token.argument)[0], self.parse(token.suchthat), Solver.GLPK], {}
+            return [[self.arguments(token.argument)[0]], self.parse(token.suchthat), Solver.GLPK], {}
         elif "argument" in token.__dict__: # token is ACTION_GET, ACTION_DEL, ACTION_SUB, ACTION_CUT
             if isinstance(token, (ACTION_GET, ACTION_DEL)):
-                return self.parse(self.model, token.argument), {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
+                if isinstance(token.argument, (LIST, PREDICATE)):
+                    return self.parse(token.argument), {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
+                else:
+                    return [self.parse(token.argument)], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
             elif isinstance(token, ACTION_CUT):
                 if isinstance(token.argument, VARIABLE):
                     return [{token.argument.id: token.argument.id}], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
                 elif isinstance(token.argument, LIST):
                     return [reduce(lambda d1, d2: d1 | d2,
                         map(
-                            lambda k: {self.parse(self.model, k): self.parse(self.model, k)} if isinstance(self.parse(self.model, k), str) else self.parse(self.model, k),
+                            lambda k: {self.parse(k): self.parse(k)} if isinstance(self.parse(k), str) else self.parse(k),
                             token.argument.items
                         )
                     )], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
@@ -154,13 +157,13 @@ class Parser:
                     return [token.argument.properties], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
                 else:
                     raise NotImplementedError("Not implemented yet")
-            return [self.parse(self.model, token.argument)], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
+            return [self.parse(token.argument)], {k: self.parse(v) for k,v in token.__dict__.items() if k != "argument"}
         elif isinstance(token, PROPERTIES):
-            return {self.parse(self.model, k): self.parse(self.model, v) for k,v in token.properties.items()}, {self.parse(self.model, k): self.parse(self.model, v) for k,v in token.__dict__.items()}
+            return {self.parse(k): self.parse(v) for k,v in token.properties.items()}, {self.parse(k): self.parse(v) for k,v in token.__dict__.items()}
         elif isinstance(token, LIST):
             return list(
                 map(
-                    partial(self.parse, self.model),
+                    self.parse,
                     token.items
                 )
             )
@@ -175,12 +178,11 @@ class Parser:
         elif isinstance(token, ASSIGNMENT):
             if isinstance(token.rhs, (INT_VALUE, FLOAT_VALUE, VALUE)):
                 token.rhs = BOUND(token.rhs.value, token.rhs.value)
-            return {self.parse(self.model, token.lhs): self.parse(self.model, token.rhs)}
+            return {self.parse(token.lhs): self.parse(token.rhs)}
         else:
-            return [], {self.parse(self.model, k): self.parse(self.model, v) for k,v in token.__dict__.items()}
+            return [], {self.parse(k): self.parse(v) for k,v in token.__dict__.items()}
     
-    def evaluate(self, model, tokens):
-        self.model = deepcopy(model)
+    def evaluate(self, tokens):
         def _evaluate(result):
             if isinstance(result, (str, bool)):
                 return self.model, self.model.propagate({})
@@ -202,7 +204,7 @@ class Parser:
                 return result, result.propagate({})
             else:
                 raise ValueError("Got unexpected result from parsing")
-        result = self.parse(model, tokens)()
+        result = self.parse(tokens)()
         return _evaluate(result)
     
     def evaluate_predicate(self, variable: str, properties: Dict, proposition: PROPOSITION) -> bool:

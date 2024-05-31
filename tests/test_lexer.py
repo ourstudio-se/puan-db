@@ -348,8 +348,8 @@ def test_atleast():
     query = "SET ATLEAST 2 [x, y, z] {} # set at least 2 of x, y, z"
     expected = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATLEAST,
-        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
         INT_VALUE(2),
+        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
     )
     assert lex(query)[0] == expected
     
@@ -357,8 +357,8 @@ def test_atmost():
     query = "SET ATMOST 2 [x, y, z] {} # set at most 2 of x, y, z"
     expected = ACTION_SET_VALUE_COMPOSITE(
         SUB_ACTION_TYPE.ATMOST,
-        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
         INT_VALUE(2),
+        LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]),
     )
     assert lex(query)[0] == expected
 
@@ -442,4 +442,50 @@ def test_not():
             )
         )
     )
+    assert lex(query)[0] == expected
+
+def test_set_primitive():
+    query = "SET x # Set boolean variable x with no attributes"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"))
+    assert lex(query)[0] == expected
+
+    query = "SET x {} # Set boolean variable x with no attributes"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), bound=BOUND(0,1))
+    assert lex(query)[0] == expected
+
+    query = "SET x -2..3 # Set integer variable x with bounds -2 to 3"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), bound=BOUND(-2, 3))
+    assert lex(query)[0] == expected
+
+    query = "SET x {price: 5.0, category: 'Model'} # Set variable x with attributes price and category"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"price": 5.0, "category": "Model"}))
+    assert lex(query)[0] == expected
+
+    query = "SET x {price: 5.0, category: 'Model'} -2..3 # Set variable x with attributes price and category"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"price": 5.0, "category": "Model"}), bound=BOUND(-2, 3))
+    assert lex(query)[0] == expected
+
+    query = "SET x {text: 'hej : pa : dig'}"
+    expected = ACTION_SET_PRIMITIVE(VARIABLE("x"), properties=PROPERTIES({"text": "hej : pa : dig"}))
+    assert lex(query)[0] == expected
+
+def test_set_primitives():
+    query = "SET [x, y, z] # Set boolean variables x, y, z with no attributes"
+    expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
+    assert lex(query)[0] == expected
+    
+    query = "SET [x, y, z] {} # Set boolean variables x, y, z with no attributes"
+    expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]))
+    assert lex(query)[0] == expected
+
+    query = "SET [x, y, z] -2..3 # Set boolean variables x, y, z with no attributes"
+    expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]), bound=BOUND(-2, 3))
+    assert lex(query)[0] == expected
+
+    query = "SET [x, y, z] {price: 5.0, category: 'Model'} # Set boolean variables x, y, z with no attributes"
+    expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]), properties=PROPERTIES({"price": 5.0, "category": "Model"}))
+    assert lex(query)[0] == expected
+
+    query = "SET [x, y, z] {price: 5.0, category: 'Model'} -2..3 # Set boolean variables x, y, z with no attributes"
+    expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]), properties=PROPERTIES({"price": 5.0, "category": "Model"}), bound=BOUND(-2, 3))
     assert lex(query)[0] == expected

@@ -6,35 +6,35 @@ from dataclasses import dataclass, field
 class STRING_ACTION:
     pass
 
-class ACTION_TYPE(Enum):
-    SET = 1
-    GET = 2
-    DEL = 3
-    SUB = 4
-    CUT = 5
-    ASSUME = 6
-    REDUCE = 7
-    PROPAGATE = 8
-    MAXIMIZE = 9
-    MINIMIZE = 10
+class ACTION_TYPE(str, Enum):
+    SET = "SET"
+    GET = "GET"
+    DEL = "DEL"
+    SUB = "SUB"
+    CUT = "CUT"
+    ASSUME = "ASSUME"
+    REDUCE = "REDUCE"
+    PROPAGATE = "PROPAGATE"
+    MAXIMIZE = "MAXIMIZE"
+    MINIMIZE = "MINIMIZE"
 
-class SUB_ACTION_TYPE(Enum):
-    ATLEAST = 1
-    ATMOST = 2
-    AND = 3
-    OR = 4
-    XOR = 5
-    NOT = 6
-    EQUAL = 7
-    IMPLY = 8
-    EQUIV = 9
+class SUB_ACTION_TYPE(str, Enum):
+    ATLEAST = "ATLEAST"
+    ATMOST = "ATMOST"
+    AND = "AND"
+    OR = "OR"
+    XOR = "XOR"
+    NOT = "NOT"
+    EQUAL = "EQUAL"
+    IMPLY = "IMPLY"
+    EQUIV = "EQUIV"
 
-class KEYWORD(Enum):
-    SUCHTHAT = 1
+class KEYWORD(str, Enum):
+    SUCHTHAT = "SUCHTHAT"
 
-class DATATYPE(Enum):
-    PRIMITIVE = 1
-    COMPOSITE = 2
+class DATATYPE(str, Enum):
+    PRIMITIVE = "PRIMITIVE"
+    COMPOSITE = "COMPOSITE"
 
 @dataclass
 class PROPERTIES:
@@ -124,8 +124,8 @@ class ACTION_SET_LIST_COMPOSITE:
 @dataclass
 class ACTION_SET_VALUE_COMPOSITE:
     sub_action: SUB_ACTION_TYPE
-    arguments: LIST_PREDICATE
     value: VALUE
+    arguments: LIST_PREDICATE
     properties: PROPERTIES = field(default_factory=PROPERTIES)
 
 @dataclass
