@@ -20,34 +20,56 @@ class Bound(_message.Message):
     def __init__(self, lower: _Optional[int] = ..., upper: _Optional[int] = ...) -> None: ...
 
 class Primitive(_message.Message):
-    __slots__ = ("id", "bound")
+    __slots__ = ("id", "bound", "properties")
     ID_FIELD_NUMBER: _ClassVar[int]
     BOUND_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     id: str
     bound: Bound
-    def __init__(self, id: _Optional[str] = ..., bound: _Optional[_Union[Bound, _Mapping]] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, id: _Optional[str] = ..., bound: _Optional[_Union[Bound, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Composite(_message.Message):
-    __slots__ = ("id", "references", "bias", "negated", "alias")
+    __slots__ = ("id", "references", "bias", "negated", "alias", "properties")
     ID_FIELD_NUMBER: _ClassVar[int]
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     BIAS_FIELD_NUMBER: _ClassVar[int]
     NEGATED_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     id: str
     references: _containers.RepeatedScalarFieldContainer[str]
     bias: int
     negated: bool
     alias: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, id: _Optional[str] = ..., references: _Optional[_Iterable[str]] = ..., bias: _Optional[int] = ..., negated: bool = ..., alias: _Optional[_Iterable[str]] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, id: _Optional[str] = ..., references: _Optional[_Iterable[str]] = ..., bias: _Optional[int] = ..., negated: bool = ..., alias: _Optional[_Iterable[str]] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
+
+class StringOrIntPropertyValue(_message.Message):
+    __slots__ = ("string_value", "int_value")
+    STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
+    INT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    string_value: str
+    int_value: int
+    def __init__(self, string_value: _Optional[str] = ..., int_value: _Optional[int] = ...) -> None: ...
+
+class Property(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: StringOrIntPropertyValue
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[StringOrIntPropertyValue, _Mapping]] = ...) -> None: ...
 
 class SetPrimitivesRequest(_message.Message):
-    __slots__ = ("ids", "bound")
+    __slots__ = ("ids", "bound", "properties")
     IDS_FIELD_NUMBER: _ClassVar[int]
     BOUND_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     ids: _containers.RepeatedScalarFieldContainer[str]
     bound: Bound
-    def __init__(self, ids: _Optional[_Iterable[str]] = ..., bound: _Optional[_Union[Bound, _Mapping]] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, ids: _Optional[_Iterable[str]] = ..., bound: _Optional[_Union[Bound, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class References(_message.Message):
     __slots__ = ("ids",)
@@ -56,76 +78,102 @@ class References(_message.Message):
     def __init__(self, ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class AtLeast(_message.Message):
-    __slots__ = ("references", "value", "alias")
+    __slots__ = ("references", "value", "alias", "properties")
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     references: _containers.RepeatedScalarFieldContainer[str]
     value: int
     alias: str
-    def __init__(self, references: _Optional[_Iterable[str]] = ..., value: _Optional[int] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., value: _Optional[int] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class AtMost(_message.Message):
-    __slots__ = ("references", "value", "alias")
+    __slots__ = ("references", "value", "alias", "properties")
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     references: _containers.RepeatedScalarFieldContainer[str]
     value: int
     alias: str
-    def __init__(self, references: _Optional[_Iterable[str]] = ..., value: _Optional[int] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., value: _Optional[int] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class And(_message.Message):
-    __slots__ = ("references", "alias")
+    __slots__ = ("references", "alias", "properties")
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     references: _containers.RepeatedScalarFieldContainer[str]
     alias: str
-    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Or(_message.Message):
-    __slots__ = ("references", "alias")
+    __slots__ = ("references", "alias", "properties")
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     references: _containers.RepeatedScalarFieldContainer[str]
     alias: str
-    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Xor(_message.Message):
-    __slots__ = ("references", "alias")
+    __slots__ = ("references", "alias", "properties")
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     references: _containers.RepeatedScalarFieldContainer[str]
     alias: str
-    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Not(_message.Message):
-    __slots__ = ("references", "alias")
+    __slots__ = ("references", "alias", "properties")
     REFERENCES_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     references: _containers.RepeatedScalarFieldContainer[str]
     alias: str
-    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Imply(_message.Message):
-    __slots__ = ("condition", "consequence", "alias")
+    __slots__ = ("condition", "consequence", "alias", "properties")
     CONDITION_FIELD_NUMBER: _ClassVar[int]
     CONSEQUENCE_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     condition: str
     consequence: str
     alias: str
-    def __init__(self, condition: _Optional[str] = ..., consequence: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, condition: _Optional[str] = ..., consequence: _Optional[str] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
+
+class Equal(_message.Message):
+    __slots__ = ("references", "alias", "properties")
+    REFERENCES_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    references: _containers.RepeatedScalarFieldContainer[str]
+    alias: str
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, references: _Optional[_Iterable[str]] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Equivalent(_message.Message):
-    __slots__ = ("lhs", "rhs", "alias")
+    __slots__ = ("lhs", "rhs", "alias", "properties")
     LHS_FIELD_NUMBER: _ClassVar[int]
     RHS_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     lhs: str
     rhs: str
     alias: str
-    def __init__(self, lhs: _Optional[str] = ..., rhs: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, lhs: _Optional[str] = ..., rhs: _Optional[str] = ..., alias: _Optional[str] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class Variable(_message.Message):
     __slots__ = ("id", "bound")
@@ -134,6 +182,16 @@ class Variable(_message.Message):
     id: str
     bound: Bound
     def __init__(self, id: _Optional[str] = ..., bound: _Optional[_Union[Bound, _Mapping]] = ...) -> None: ...
+
+class VariableResponse(_message.Message):
+    __slots__ = ("id", "bound", "properties")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    BOUND_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    bound: Bound
+    properties: _containers.RepeatedCompositeFieldContainer[Property]
+    def __init__(self, id: _Optional[str] = ..., bound: _Optional[_Union[Bound, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[Property, _Mapping]]] = ...) -> None: ...
 
 class FixedVariable(_message.Message):
     __slots__ = ("id", "value")

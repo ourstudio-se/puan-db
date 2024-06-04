@@ -6,8 +6,8 @@ import puan_db_pb2
 
 from concurrent import futures
 from itertools import starmap
-from pldag import Solver, NoSolutionsException
-from typing import Optional, Dict
+from pldag import Solver, NoSolutionsException, Solution
+from typing import Optional, Dict, List
 from storage import LocalModelHandler, AzureBlobModelHandler, ComputingDevice
 
         
@@ -70,6 +70,20 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         )
     
     @staticmethod
+    def solution_interpretation(solution: Solution) -> puan_db_pb2.Interpretation:
+        return puan_db_pb2.Interpretation(
+            variables=list(
+                map(
+                    lambda variable: puan_db_pb2.Variable(
+                        id=variable.id,
+                        bound=PuanDB.complex_bound(variable.bound),
+                    ),
+                    solution.variables,
+                )
+            )
+        )
+    
+    @staticmethod
     def interpretation_dict(interpretation: puan_db_pb2.Interpretation) -> Dict[str, complex]:
         return dict(
             map(
@@ -98,6 +112,39 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             map(
                 lambda x: (x.id, x.value),
                 objective.variables
+            )
+        )
+    
+    @staticmethod
+    def properties_dict(properties: List[puan_db_pb2.Property]) -> Dict[str, str]:
+
+        def unravel_value(value):
+            if value.HasField('string_value'):
+                return value.string_value
+            if value.HasField('int_value'):
+                return value.int_value
+            
+            return None
+
+        return dict(
+            map(
+                lambda x: (x.key, unravel_value(x.value)),
+                properties,
+            )
+        )
+    
+    @staticmethod
+    def dict_properties(d: Dict[str, str]) -> List[puan_db_pb2.Property]:
+        return list(
+            starmap(
+                lambda k,v: puan_db_pb2.Property(
+                    key=k,
+                    value=puan_db_pb2.StringOrIntPropertyValue(
+                        string_value=v if isinstance(v, str) else None,
+                        int_value=v if isinstance(v, int) else None,
+                    ),
+                ),
+                d.items()
             )
         )
     
@@ -149,18 +196,18 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
 
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
-                lambda model: model.set_primitive(request.id, PuanDB.bound_complex(request.bound))
+                lambda model: model.set_primitive(request.id, PuanDB.properties_dict(request.properties), PuanDB.bound_complex(request.bound))
             )
         )
 
-    def SetPrimitives(self, request: puan_db_pb2.Primitive, context):
+    def SetPrimitives(self, request: puan_db_pb2.SetPrimitivesRequest, context):
         computing_device = self.device_from_context(context)
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
         return puan_db_pb2.IDsResponse(
             ids=computing_device.modify(
-                lambda model: model.set_primitives(request.ids, PuanDB.bound_complex(request.bound))
+                lambda model: model.set_primitives(request.ids, PuanDB.properties_dict(request.properties), PuanDB.bound_complex(request.bound))
             )
         )
     
@@ -172,9 +219,10 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_atleast(
-                    request.references, 
-                    request.value, 
-                    request.alias,
+                    children=request.references, 
+                    value=request.value, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -187,9 +235,10 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_atmost(
-                    request.references, 
-                    request.value, 
-                    request.alias,
+                    children=request.references, 
+                    value=request.value, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -202,8 +251,9 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_and(
-                    request.references, 
-                    request.alias,
+                    children=request.references, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -216,8 +266,9 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_or(
-                    request.references, 
-                    request.alias,
+                    children=request.references, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -230,8 +281,9 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_xor(
-                    request.references, 
-                    request.alias,
+                    children=request.references, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -244,8 +296,9 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_not(
-                    request.references, 
-                    request.alias,
+                    children=request.references, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -258,14 +311,15 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_imply(
-                    request.condition, 
-                    request.consequence, 
-                    request.alias,
+                    antecedent=request.condition, 
+                    consequent=request.consequence, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
     
-    def SetEqual(self, request: puan_db_pb2.Equivalent, context):
+    def SetEqual(self, request: puan_db_pb2.Equal, context):
         computing_device = self.device_from_context(context)
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
@@ -273,11 +327,27 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
                 lambda model: model.set_equal(
-                    [
+                    references=request.references, 
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
+                )
+            )
+        )
+    
+    def SetEquivalent(self, request: puan_db_pb2.Equivalent, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+
+        return puan_db_pb2.SetResponse(
+            id=computing_device.modify(
+                lambda model: model.set_equal(
+                    references=[
                         request.lhs,
                         request.rhs,
                     ], 
-                    request.alias,
+                    alias=request.alias,
+                    properties=PuanDB.properties_dict(request.properties),
                 )
             )
         )
@@ -287,7 +357,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
-        return PuanDB.dict_interpretation(
+        return PuanDB.solution_interpretation(
             computing_device.compute(
                 lambda model: model.propagate_upstream(PuanDB.interpretation_dict(request))
             )
@@ -298,7 +368,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
-        return PuanDB.dict_interpretation(
+        return PuanDB.solution_interpretation(
             computing_device.compute(
                 lambda model: model.propagate(PuanDB.interpretation_dict(request))
             )
@@ -309,7 +379,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
-        return PuanDB.dict_interpretation(
+        return PuanDB.solution_interpretation(
             computing_device.compute(
                 lambda model: model.propagate_bistream(PuanDB.interpretation_dict(request))
             )
@@ -324,7 +394,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             return puan_db_pb2.SolveResponse(
                 solutions=list(
                     map(
-                        PuanDB.dict_interpretation,
+                        PuanDB.solution_interpretation,
                         computing_device.compute(
                             lambda model: model.solve(
                                 list(map(PuanDB.objective_dict, request.objectives)), 
@@ -365,11 +435,18 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
+        bound, props = computing_device.compute(
+            lambda model: (
+                model.get(request.id),
+                model.data.get(request.id, {})
+            )
+        )
+
         try:
-            return PuanDB.complex_bound(
-                computing_device.compute(
-                    lambda model: model.get(request.id)
-                )[0]
+            return puan_db_pb2.VariableResponse(
+                id=request.id,
+                properties=PuanDB.dict_properties(props),
+                bound=PuanDB.complex_bound(bound),
             )
         except:
             raise Exception(f"ID `{request.id}` not found")
@@ -461,8 +538,9 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
                     "id": request.id,
                     "references": model.dependencies(request.id),
                     "bias": int(model._bvec[model._col(request.id)]),
-                    "negated": bool(model._nvec[request.id]),
+                    "negated": bool(model._nvec[model._row(request.id)]),
                     "alias": model.id_to_alias(request.id),
+                    "properties": PuanDB.dict_properties(model.data.get(request.id, {})),
                 }
             )
         )
@@ -472,7 +550,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
         if not computing_device:
             context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
 
-        model = computing_device.model
+        model = computing_device.get()
         return puan_db_pb2.Composites(
             composites=list(
                 map(
@@ -483,6 +561,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
                             "bias": int(model._bvec[model._row(composite_id)].real),
                             "negated": bool(model._nvec[model._row(composite_id)]),
                             "alias": model.id_to_alias(composite_id),
+                            "properties": PuanDB.dict_properties(model.data.get(composite_id, {})),
                         }
                     ),
                     model.composites.tolist(),

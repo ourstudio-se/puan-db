@@ -27,7 +27,7 @@ class ModelingServiceStub(object):
         self.Get = channel.unary_unary(
                 '/ModelingService/Get',
                 request_serializer=puan__db__pb2.IDRequest.SerializeToString,
-                response_deserializer=puan__db__pb2.Bound.FromString,
+                response_deserializer=puan__db__pb2.VariableResponse.FromString,
                 )
         self.GetMetaInformation = channel.unary_unary(
                 '/ModelingService/GetMetaInformation',
@@ -126,6 +126,11 @@ class ModelingServiceStub(object):
                 )
         self.SetEqual = channel.unary_unary(
                 '/ModelingService/SetEqual',
+                request_serializer=puan__db__pb2.Equal.SerializeToString,
+                response_deserializer=puan__db__pb2.SetResponse.FromString,
+                )
+        self.SetEquivalent = channel.unary_unary(
+                '/ModelingService/SetEquivalent',
                 request_serializer=puan__db__pb2.Equivalent.SerializeToString,
                 response_deserializer=puan__db__pb2.SetResponse.FromString,
                 )
@@ -310,6 +315,12 @@ class ModelingServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetEquivalent(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Cut(self, request, context):
         """Model cutting operations
         """
@@ -370,7 +381,7 @@ def add_ModelingServiceServicer_to_server(servicer, server):
             'Get': grpc.unary_unary_rpc_method_handler(
                     servicer.Get,
                     request_deserializer=puan__db__pb2.IDRequest.FromString,
-                    response_serializer=puan__db__pb2.Bound.SerializeToString,
+                    response_serializer=puan__db__pb2.VariableResponse.SerializeToString,
             ),
             'GetMetaInformation': grpc.unary_unary_rpc_method_handler(
                     servicer.GetMetaInformation,
@@ -469,6 +480,11 @@ def add_ModelingServiceServicer_to_server(servicer, server):
             ),
             'SetEqual': grpc.unary_unary_rpc_method_handler(
                     servicer.SetEqual,
+                    request_deserializer=puan__db__pb2.Equal.FromString,
+                    response_serializer=puan__db__pb2.SetResponse.SerializeToString,
+            ),
+            'SetEquivalent': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetEquivalent,
                     request_deserializer=puan__db__pb2.Equivalent.FromString,
                     response_serializer=puan__db__pb2.SetResponse.SerializeToString,
             ),
@@ -564,7 +580,7 @@ class ModelingService(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/Get',
             puan__db__pb2.IDRequest.SerializeToString,
-            puan__db__pb2.Bound.FromString,
+            puan__db__pb2.VariableResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -903,6 +919,23 @@ class ModelingService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/SetEqual',
+            puan__db__pb2.Equal.SerializeToString,
+            puan__db__pb2.SetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetEquivalent(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/SetEquivalent',
             puan__db__pb2.Equivalent.SerializeToString,
             puan__db__pb2.SetResponse.FromString,
             options, channel_credentials,
