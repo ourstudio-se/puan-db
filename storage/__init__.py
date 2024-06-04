@@ -20,9 +20,9 @@ class ModelHandler:
         return hashlib.sha256(f"{model.sha1()}{self.salt}".encode()).hexdigest()
 
     def create_model(self, id: str, password: str) -> str:
-        token = self.create_token(id, password)
-        self.save_model(Puan(), token)
-        return token
+        # token = self.create_token(id, password)
+        self.save_model(Puan(), id)
+        return id
 
     def save_model(self, model, token):
         raise NotImplementedError("Method not implemented")
