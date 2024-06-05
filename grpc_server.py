@@ -587,7 +587,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
                 lambda model: {
                     "id": request.id,
                     "references": model.dependencies(request.id),
-                    "bias": int(model._bvec[model._col(request.id)]),
+                    "bias": int(model._bvec[model._row(request.id)]),
                     "negated": bool(model._nvec[model._row(request.id)]),
                     "alias": model.id_to_alias(request.id),
                     "properties": PuanDB.dict_properties(model.data.get(request.id, {})),

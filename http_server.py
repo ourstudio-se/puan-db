@@ -58,6 +58,7 @@ def to_nodes(model: Puan, solution: Solution):
                 "properties": model.data.get(x, {}),
                 "bias": int(model._bvec[model._row(x)].real) if x in model.composites else None,
                 "negated": bool(model._nvec[model._row(x)]) if x in model.composites else None,
+                "children": model.dependencies(x) if x in model.composites else None,
             }, 
             model._imap
         )
@@ -66,6 +67,7 @@ def to_nodes(model: Puan, solution: Solution):
 @app.get('/')
 def home():
     return "Hello, World!"
+
 @app.get('/api/models/{model_name}')
 def get_model(model_name):
     model = handler.load_model(model_name)
@@ -87,8 +89,8 @@ def get_models():
 
 @app.post('/api/models')
 async def create_model(request: Request):
-    model_name = await request.json()
-    model_name = model_name.get("model", None)
+    data = await request.json()
+    model_name = data.get("model", None)
     if model_name is None:
         raise HTTPException(status_code=400, detail="Model name was empty")
 
