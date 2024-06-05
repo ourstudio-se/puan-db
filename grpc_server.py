@@ -6,8 +6,8 @@ import puan_db_pb2
 
 from concurrent import futures
 from itertools import starmap
-from pldag import Solver, NoSolutionsException, Solution
-from typing import Optional, Dict, List
+from pldag import Puan, Solver, NoSolutionsException, Solution
+from typing import Optional, Dict, List, Union
 from storage import LocalModelHandler, AzureBlobModelHandler, ComputingDevice
 
         
@@ -148,6 +148,55 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             )
         )
     
+    @staticmethod
+    def find_from_predicate(model: Puan, predicate: puan_db_pb2.Predicate):
+
+        def evaluate(key: str, pred: puan_db_pb2.Predicate.Operand):
+
+            if pred.HasField('predicate'):
+                return validate(key, pred.predicate)
+            
+            elif pred.HasField('value_of'):
+                return model.data.get(key, {}).get(pred.value_of.key, None)
+            
+            elif pred.HasField('number'):
+                return pred.number
+            
+            elif pred.HasField('text'):
+                return pred.text
+            
+            return None
+            
+
+        def validate(key: str, predicate: puan_db_pb2.Predicate):
+
+            val_map = {
+                puan_db_pb2.Predicate.BinaryOperator.EQ: lambda lhs_evd, rhs_evd: lhs_evd == rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.NEQ: lambda lhs_evd, rhs_evd: lhs_evd != rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.GT: lambda lhs_evd, rhs_evd: lhs_evd > rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.GEQ: lambda lhs_evd, rhs_evd: lhs_evd >= rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.LT: lambda lhs_evd, rhs_evd: lhs_evd < rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.LEQ: lambda lhs_evd, rhs_evd: lhs_evd <= rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.AND: lambda lhs_evd, rhs_evd: lhs_evd and rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.OR: lambda lhs_evd, rhs_evd: lhs_evd or rhs_evd,
+                puan_db_pb2.Predicate.BinaryOperator.IN: lambda lhs_evd, rhs_evd: lhs_evd in rhs_evd,
+            }
+
+            lhs_evaluated = evaluate(key, predicate.lhs)
+            rhs_evaluated = evaluate(key, predicate.rhs)
+            
+            if lhs_evaluated is None or rhs_evaluated is None:
+                return False
+            
+            return val_map[predicate.operator](lhs_evaluated, rhs_evaluated)
+            
+        return list(
+            filter(
+                lambda k: validate(k, predicate),
+                model.data.keys()
+            )
+        )
+    
     def device_from_context(self, context):
         token = dict(context.invocation_metadata()).get('token', None)
         if not token:
@@ -171,7 +220,8 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
     
     def ModelSelect(self, request, context):
         try:
-            token = self.model_handler.create_token(request.id, request.password)
+            # token = self.model_handler.create_token(request.id, request.password)
+            token = request.id
             if not self.model_handler.verify_token(token):
                 return puan_db_pb2.ModelResponse(
                     error="Invalid credentials",
@@ -576,6 +626,16 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
 
         return puan_db_pb2.IDsResponse(
             ids=computing_device.compute(lambda model: model.composites.tolist())
+        )
+    
+    def Find(self, request, context):
+        computing_device = self.device_from_context(context)
+        if not computing_device:
+            context.abort(grpc.StatusCode.INTERNAL, 'Model data is not available')
+        return puan_db_pb2.IDsResponse(
+            ids=computing_device.compute(
+                lambda model: PuanDB.find_from_predicate(model, request)
+            )
         )
     
     def Cut(self, request, context):

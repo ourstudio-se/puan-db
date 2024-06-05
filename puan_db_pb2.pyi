@@ -362,3 +362,49 @@ class CutSubRequest(_message.Message):
     cut: CutRequest
     sub: SubRequest
     def __init__(self, cut: _Optional[_Union[CutRequest, _Mapping]] = ..., sub: _Optional[_Union[SubRequest, _Mapping]] = ...) -> None: ...
+
+class Predicate(_message.Message):
+    __slots__ = ("lhs", "operator", "rhs")
+    class BinaryOperator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        EQ: _ClassVar[Predicate.BinaryOperator]
+        NEQ: _ClassVar[Predicate.BinaryOperator]
+        LT: _ClassVar[Predicate.BinaryOperator]
+        GT: _ClassVar[Predicate.BinaryOperator]
+        LEQ: _ClassVar[Predicate.BinaryOperator]
+        GEQ: _ClassVar[Predicate.BinaryOperator]
+        AND: _ClassVar[Predicate.BinaryOperator]
+        OR: _ClassVar[Predicate.BinaryOperator]
+        IN: _ClassVar[Predicate.BinaryOperator]
+    EQ: Predicate.BinaryOperator
+    NEQ: Predicate.BinaryOperator
+    LT: Predicate.BinaryOperator
+    GT: Predicate.BinaryOperator
+    LEQ: Predicate.BinaryOperator
+    GEQ: Predicate.BinaryOperator
+    AND: Predicate.BinaryOperator
+    OR: Predicate.BinaryOperator
+    IN: Predicate.BinaryOperator
+    class ValueOf(_message.Message):
+        __slots__ = ("key",)
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        def __init__(self, key: _Optional[str] = ...) -> None: ...
+    class Operand(_message.Message):
+        __slots__ = ("predicate", "value_of", "number", "text")
+        PREDICATE_FIELD_NUMBER: _ClassVar[int]
+        VALUE_OF_FIELD_NUMBER: _ClassVar[int]
+        NUMBER_FIELD_NUMBER: _ClassVar[int]
+        TEXT_FIELD_NUMBER: _ClassVar[int]
+        predicate: Predicate
+        value_of: Predicate.ValueOf
+        number: float
+        text: str
+        def __init__(self, predicate: _Optional[_Union[Predicate, _Mapping]] = ..., value_of: _Optional[_Union[Predicate.ValueOf, _Mapping]] = ..., number: _Optional[float] = ..., text: _Optional[str] = ...) -> None: ...
+    LHS_FIELD_NUMBER: _ClassVar[int]
+    OPERATOR_FIELD_NUMBER: _ClassVar[int]
+    RHS_FIELD_NUMBER: _ClassVar[int]
+    lhs: Predicate.Operand
+    operator: Predicate.BinaryOperator
+    rhs: Predicate.Operand
+    def __init__(self, lhs: _Optional[_Union[Predicate.Operand, _Mapping]] = ..., operator: _Optional[_Union[Predicate.BinaryOperator, str]] = ..., rhs: _Optional[_Union[Predicate.Operand, _Mapping]] = ...) -> None: ...

@@ -74,6 +74,11 @@ class ModelingServiceStub(object):
                 request_serializer=puan__db__pb2.Empty.SerializeToString,
                 response_deserializer=puan__db__pb2.IDsResponse.FromString,
                 )
+        self.Find = channel.unary_unary(
+                '/ModelingService/Find',
+                request_serializer=puan__db__pb2.Predicate.SerializeToString,
+                response_deserializer=puan__db__pb2.IDsResponse.FromString,
+                )
         self.Delete = channel.unary_unary(
                 '/ModelingService/Delete',
                 request_serializer=puan__db__pb2.IDRequest.SerializeToString,
@@ -243,6 +248,12 @@ class ModelingServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def GetCompositeIds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Find(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -426,6 +437,11 @@ def add_ModelingServiceServicer_to_server(servicer, server):
             'GetCompositeIds': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCompositeIds,
                     request_deserializer=puan__db__pb2.Empty.FromString,
+                    response_serializer=puan__db__pb2.IDsResponse.SerializeToString,
+            ),
+            'Find': grpc.unary_unary_rpc_method_handler(
+                    servicer.Find,
+                    request_deserializer=puan__db__pb2.Predicate.FromString,
                     response_serializer=puan__db__pb2.IDsResponse.SerializeToString,
             ),
             'Delete': grpc.unary_unary_rpc_method_handler(
@@ -733,6 +749,23 @@ class ModelingService(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/ModelingService/GetCompositeIds',
             puan__db__pb2.Empty.SerializeToString,
+            puan__db__pb2.IDsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Find(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ModelingService/Find',
+            puan__db__pb2.Predicate.SerializeToString,
             puan__db__pb2.IDsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
