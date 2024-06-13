@@ -57,7 +57,6 @@ def to_nodes(model: Puan, solution: Solution):
                 },
                 "properties": model.data.get(x, {}),
                 "bias": int(model._bvec[model._row(x)].real) if x in model.composites else None,
-                "negated": bool(model._nvec[model._row(x)]) if x in model.composites else None,
                 "children": model.dependencies(x) if x in model.composites else None,
             }, 
             model._imap

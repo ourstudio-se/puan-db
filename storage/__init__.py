@@ -37,20 +37,25 @@ class ModelHandler:
 @dataclass
 class LocalModelHandler(ModelHandler):
 
+    folder: str
+
     def save_model(self, model, token):
-        with open(token, "wb") as f:
+        with open(self.folder + "/" + token, "wb") as f:
             f.write(gzip.compress(pickle.dumps(model)))
 
     def load_model(self, token: str) -> Optional[Puan]:
         try:
-            with open(token, "rb") as f:
+            with open(self.folder + "/" + token, "rb") as f:
                 return pickle.loads(gzip.decompress(f.read()))
         except Exception as e:
             logging.log(logging.ERROR, e)
             return None
         
     def verify_token(self, token: str) -> bool:
-        return os.path.exists(token)
+        return os.path.exists(self.folder + "/" + token)
+    
+    def list_blobs(self):
+        return os.listdir(self.folder)
     
 
 from io import BytesIO

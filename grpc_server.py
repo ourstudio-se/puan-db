@@ -378,6 +378,7 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
             id=computing_device.modify(
                 lambda model: model.set_equal(
                     references=request.references, 
+                    value=request.value,
                     alias=request.alias,
                     properties=PuanDB.properties_dict(request.properties),
                 )
@@ -391,11 +392,9 @@ class PuanDB(puan_db_pb2_grpc.ModelingService):
 
         return puan_db_pb2.SetResponse(
             id=computing_device.modify(
-                lambda model: model.set_equal(
-                    references=[
-                        request.lhs,
-                        request.rhs,
-                    ], 
+                lambda model: model.set_equiv(
+                    request.lhs,
+                    request.rhs,
                     alias=request.alias,
                     properties=PuanDB.properties_dict(request.properties),
                 )
