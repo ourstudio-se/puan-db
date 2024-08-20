@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis  # Replace with your database service name
+    environment:
+      REDIS_HOST: redis  # The hostname is the service name
+      REDIS_PORT: 6379   # Default Redis port, adjust for other databases
+    volumes:
+      - .:/app
+
+  redis:
+    image: redis:6.2-alpine  # Use the official Redis image
+    ports:
+      - "6379:6379"  # Expose the Redis port

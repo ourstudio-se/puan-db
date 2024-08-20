@@ -116,12 +116,21 @@ def prelex(inp):
 def lex_range(token):
     return BOUND(*map(literal_eval, token.split("..")))
 
+def lex_key(token):
+    return token
+
+def lex_value(token):
+    if "(" in token and ")" in token:
+        return lex_function(token)
+    elif ".." in token:
+        return lex_range(token)
+    else:
+        return literal_eval(token)
+
 def lex_prop(prop):
     fsep = prop.find(":")
     key, value = prop[:fsep].strip(), prop[fsep+1:].strip()
-    if ".." in value:
-        return (key.strip(), lex_range(value.strip()))
-    return (key.strip(), literal_eval(value.strip()))
+    return (lex_key(key.strip()), lex_value(value.strip()))
 
 def lex_props(token):
     inner = token[1:-1]
@@ -228,6 +237,8 @@ def lex_token(token):
         return DATATYPE[token]
     elif token in KEYWORD.__members__:
         return KEYWORD[token]
+    elif "" == token:
+        return EMPTY()
     elif "(" == token[0] and ")" == token[-1]:
         return lex_statement(token[1:-1])
     elif "[" == token[0] and "]" == token[-1]:

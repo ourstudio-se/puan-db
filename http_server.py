@@ -12,6 +12,16 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from starlette.requests import Request
+from fastapi_sso.sso.google import GoogleSSO
+
+app = FastAPI()
+
+google_sso = GoogleSSO(
+    os.getenv('GOOGLE_CLIENT_ID'), 
+    os.getenv('GOOGLE_CLIENT_SECRET'), 
+    "http://localhost:3000/google/callback",
+)
 
 app = FastAPI()
 
@@ -24,11 +34,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-handler = AzureBlobModelHandler(
-    salt="",
-    connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-    container=os.getenv('AZURE_STORAGE_CONTAINER')
-)
+# handler = AzureBlobModelHandler(
+#     salt="",
+#     connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
+#     container=os.getenv('AZURE_STORAGE_CONTAINER')
+# )
+
+from storage import LocalModelHandler
+handler = LocalModelHandler("", "db")
 
 def to_edges(model: Puan):
     return list(
@@ -67,6 +80,17 @@ def to_nodes(model: Puan, solution: Solution):
 @app.get('/')
 def home():
     return "Hello, World!"
+
+@app.get("/google/login")
+async def google_login():
+    with google_sso:
+        return await google_sso.get_login_redirect()
+
+@app.get("/google/callback")
+async def google_callback(request: Request):
+    with google_sso:
+        user = await google_sso.verify_and_process(request)
+    return user
 
 @app.get('/api/models/{model_name}')
 def get_model(model_name):
@@ -135,10 +159,10 @@ async def post_data(query_model: QueryModel):
     try:
         model_name = query_model.model
         query = query_model.query
-        if query is None:
+        if query is None or query == "":
             raise HTTPException(status_code=400, detail="Query was empty")
         
-        if model_name is None:
+        if model_name is None or model_name == "":
             raise HTTPException(status_code=400, detail="No model set")
         
         comp_dev: ComputingDevice = ComputingDevice(model_name, handler)
@@ -147,7 +171,12 @@ async def post_data(query_model: QueryModel):
         if not isinstance(model, Puan):
             raise HTTPException(status_code=400, detail="Invalid database model")
 
-        model, solution = Parser(model).evaluate(lexer.lex(query))[-1]
+        try:
+            lexed = lexer.lex(query)
+        except:
+            raise HTTPException(status_code=400, detail="Syntax error")
+        
+        model, solution = Parser(model).evaluate(lexed)[-1]
         comp_dev.save(model)
 
         return {

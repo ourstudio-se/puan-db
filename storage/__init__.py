@@ -5,7 +5,7 @@ import os
 import logging
 
 from dataclasses import dataclass, field
-from pldag import Puan
+from pldag import PLDAG
 from typing import Optional
 
 @dataclass
@@ -13,21 +13,15 @@ class ModelHandler:
 
     salt: str
 
-    def create_token(self, id: str, password: str) -> str:
-        return hashlib.sha256(f"{id}-{password}-{self.salt}".encode()).hexdigest()
-    
-    def create_token_from_model(self, model) -> str:
-        return hashlib.sha256(f"{model.sha1()}{self.salt}".encode()).hexdigest()
-
     def create_model(self, id: str, password: str) -> str:
         # token = self.create_token(id, password)
-        self.save_model(Puan(), id)
+        self.save_model(PLDAG(), id)
         return id
 
     def save_model(self, model, token):
         raise NotImplementedError("Method not implemented")
 
-    def load_model(self, token: str) -> Optional[Puan]:
+    def load_model(self, token: str) -> Optional[PLDAG]:
         raise NotImplementedError("Method not implemented")
         
     def verify_token(self, token: str) -> bool:
@@ -43,7 +37,7 @@ class LocalModelHandler(ModelHandler):
         with open(self.folder + "/" + token, "wb") as f:
             f.write(gzip.compress(pickle.dumps(model)))
 
-    def load_model(self, token: str) -> Optional[Puan]:
+    def load_model(self, token: str) -> Optional[PLDAG]:
         try:
             with open(self.folder + "/" + token, "rb") as f:
                 return pickle.loads(gzip.decompress(f.read()))
@@ -74,7 +68,7 @@ class AzureBlobModelHandler(ModelHandler):
         client = self.blob(token)
         client.upload_blob(gzip.compress(pickle.dumps(model)), overwrite=True)
     
-    def load_model(self, token: str) -> Optional[Puan]:
+    def load_model(self, token: str) -> Optional[PLDAG]:
 
         # Download the blob's content into a BytesIO object
         stream = BytesIO()

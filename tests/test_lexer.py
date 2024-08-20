@@ -489,3 +489,8 @@ def test_set_primitives():
     query = "SET [x, y, z] {price: 5.0, category: 'Model'} -2..3 # Set boolean variables x, y, z with no attributes"
     expected = ACTION_SET_PRIMITIVES(LIST([VARIABLE("x"), VARIABLE("y"), VARIABLE("z")]), properties=PROPERTIES({"price": 5.0, "category": "Model"}), bound=BOUND(-2, 3))
     assert lex(query)[0] == expected
+
+def test_functions_as_property_values():
+    query = """SET XOR [x : x.type == "MODEL"] {name: "Model", price: sum()}"""
+    lexed = lex(query)[0]
+    1

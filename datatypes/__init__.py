@@ -2,6 +2,10 @@ from enum import Enum
 from typing import Union, Any
 from dataclasses import dataclass, field
 
+@dataclass
+class EMPTY:
+    pass
+
 # An action that will eventually return a string
 class STRING_ACTION:
     pass

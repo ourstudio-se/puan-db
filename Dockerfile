@@ -29,17 +29,17 @@ SHELL ["/bin/bash", "-c"]
 RUN echo "conda activate myenv" >> ~/.bashrc
 ENV PATH /opt/conda/envs/myenv/bin:$PATH
 
-WORKDIR /code
+WORKDIR /app
 
 ENV APP_PORT=80
 
 # Expose port 80
 EXPOSE 80
 
-COPY ./requirements.txt /code/requirements.txt 
+COPY ./requirements.txt /app/requirements.txt 
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
-COPY ./ /code
+COPY ./ /app
 
-CMD ["python", "http_server.py"]
+CMD ["python", "http_server_json.py"]
