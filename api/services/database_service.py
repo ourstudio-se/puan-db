@@ -255,20 +255,37 @@ class DatabaseService:
         if branch_index is None:
             raise BranchDoesNotExistsException()
         
+        # Jack on this incoming commit to latest commit 
+        latest_commit = self.get_commit(self.branch_latest_commit(database_name, branch_name))
+        latest_model =  latest_commit.to_pldag()
+        merge_composites(propositions, latest_model)
+
+        try:
+            latest_model.compile()
+        except MissingVariableException as e:
+            raise VariableMissingException(e)
+
+        # Create new commit and store it
         commit = Commit(
             database_name=database_name,
             date=timestamp(),
             parents=[
                 database.branches[branch_index].commit_id
             ],
-            data_bytes=compress_dump(propositions)
-        )        
-        if self.client.get(commit.id) is not None:
-            return commit.id
-        
-        database.branches[branch_index].commit_id = commit.id
+            data_bytes=compress_dump(
+                Commit.from_pldag(latest_model)
+            )
+        )
+
+        # We don't want to save a recursive pointer from commit to commit.
+        # Therefore we check that the commit hasn't been saved, before
+        # storing the branch with new commit pointer
+        if commit.id != database.branches[branch_index].commit_id:
+            database.branches[branch_index].commit_id = commit.id
+            
         self.client.set(commit.id, compress_dump(commit.grandulate()))
         self.client.set(Database.key(database_name), compress_dump(database))
+
         return commit.id
     
     def search(self, commit_id: str, search_request: SearchDatabaseRequest) -> SearchDatabaseResponse:
@@ -487,3 +504,41 @@ class DatabaseService:
         
         except MissingVariableException as e:
             raise VariableMissingException(e)
+
+    def delete_all(self):
+        self.client.flushall()
+
+    def delete_database(self, database_name: str):
+        self.client.delete(Database.key(database_name))
+
+    def delete_branch(self, database_name: str, branch_name: str):
+        database = self.get_database(database_name)
+        branch_index = next((i for i, branch in enumerate(database.branches) if branch.name == branch_name), None)
+        if branch_index is None:
+            raise BranchDoesNotExistsException()
+        del database.branches[branch_index]
+        self.client.set(Database.key(database_name), compress_dump(database))
+
+    def delete_commit(self, commit_id: str):
+        raise NotImplementedError()
+
+        branches_pointing_to_commit = list(
+            filter(
+                lambda x: x.commit_id == commit_id,
+                chain.from_iterable(
+                    map(
+                        lambda database: database.branches,
+                        self.get_databases()
+                    )
+                )
+            )
+        )
+        commit = self.get_commit(commit_id)
+        if len(branches_pointing_to_commit) > 0:
+            for branch in branches_pointing_to_commit:
+                branch.commit_id = commit.parents[0]
+            self.client.set(Database.key(branch.database_name), compress_dump(branch))
+        else:
+            self.client.delete(commit_id)
+
+        self.client.delete(commit_id)

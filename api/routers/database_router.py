@@ -31,7 +31,7 @@ async def get_databases():
         return service.get_databases()
     except Exception as e:
         logger.error(f"Unexpected error getting databases: {e}")
-        raise HTTPException(status_code=500, detail="Error getting databases")
+        raise HTTPException(status_code=500, detail="Unexpected error getting databases")
 
 @router.get("/database/{database}")
 async def get_database_info(database: str):
@@ -42,12 +42,21 @@ async def get_database_info(database: str):
         raise HTTPException(status_code=404, detail=f"Database '{database}' does not exist")
     except Exception as e:
         logger.error(f"Unexpected error getting database {database}: {e}")
-        raise HTTPException(status_code=500, detail="Error getting database")
+        raise HTTPException(status_code=500, detail=f"Unexpected error getting database '{database}'")
 
 @router.get("/database/{database}/branch/{branch}")
 async def get_database_branch_propositions(database: str, branch: str):
     """Get propositions on latest commit for {database}'s database branch"""
-    raise NotImplementedError("This endpoint is not implemented yet")
+    try:
+        latest_commit = service.branch_latest_commit(database, branch)
+        return service.get_commit(latest_commit)
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error getting branch '{branch}' for database '{database}': {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error getting latest commit for branch '{branch}' and database '{database}'")
 
 @router.get("/commit/{commit}")
 async def get_databases_commit_propositions(commit: str):
@@ -58,7 +67,7 @@ async def get_databases_commit_propositions(commit: str):
         raise HTTPException(status_code=400, detail=f"Commit '{commit}' does not exists")
     except Exception as e:
         logger.error(f"Unexpected error getting commit '{commit}': {e}")
-        raise HTTPException(status_code=500, detail="Error getting database")
+        raise HTTPException(status_code=500, detail=f"Unexpected error getting commit '{commit} ")
 
 
 @router.post("/database/{database}")
@@ -70,7 +79,7 @@ async def create_database(database: str):
         raise HTTPException(status_code=400, detail=f"Database '{database}' already exists")
     except Exception as e:
         logger.error(f"Unexpected error creating database {database}: {e}")
-        raise HTTPException(status_code=500, detail="Error creating database")
+        raise HTTPException(status_code=500, detail=f"Unexpected error creating database '{database}'")
 
 @router.post("/database/{database}/branch/{branch}")
 async def create_branch(database: str, branch: str):
@@ -83,7 +92,7 @@ async def create_branch(database: str, branch: str):
         raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
     except Exception as e:
         logger.error(f"Unexpected error creating database {database}: {e}")
-        raise HTTPException(status_code=500, detail="Error creating database")
+        raise HTTPException(status_code=500, detail=f"Unexpected error creating branch '{branch}' on database '{database}'")
 
 @router.post("/database/{database}/branch/{branch}/commit")
 async def commit_to_branch(database: str, branch: str, propositions: List[Composite] = Body(...)) -> str:
@@ -97,36 +106,59 @@ async def commit_to_branch(database: str, branch: str, propositions: List[Compos
     except BranchDoesNotExistsException:
         raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
     except Exception as e:
-        logger.error(f"Unexpected error creating database {database}: {e}")
-        raise HTTPException(status_code=500, detail="Error creating database")
+        logger.error(f"Unexpected error committing to branch {branch} and database {database}: {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error committing to branch '{branch}' and database '{database}'")
     
 
-@router.post("/database/{database}/branch/{branch}/rebase")
-async def rebase(database: str, branch: str, from_branch: str):
-    """ Rebases given branch (given in body) onto {branch}."""
-    raise NotImplementedError("This endpoint is not implemented yet")
+# @router.post("/database/{database}/branch/{branch}/rebase")
+# async def rebase(database: str, branch: str, from_branch: str):
+#     """ Rebases given branch (given in body) onto {branch}."""
+#     raise NotImplementedError("This endpoint is not implemented yet")
 
 
 @router.delete("/database")
 async def delete_all():
     """ Delete all databases """
-    raise NotImplementedError("This endpoint is not implemented yet")
+    try:
+        return service.delete_all()
+    except Exception as e:
+        logger.error(f"Unexpected error deleting all databases: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error deleting all databases")
 
 @router.delete("/database/{database}")
 async def delete_database(database: str):
     """ Delete database {database} """
-    raise NotImplementedError("This endpoint is not implemented yet")
+    try:
+        return service.delete_database(database)
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error deleting database '{database}': {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error deleting database")
 
 @router.delete("/database/{database}/branch/{branch}")
 async def delete_branch(database: str, branch: str):
     """ Delete branch {branch} except 'main' branch (use delete_database instead) """
-    raise NotImplementedError("This endpoint is not implemented yet")
+    try:
+        return service.delete_branch(database, branch)
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error deleting branch '{branch}' for database '{database}': {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error deleting branch")
 
 @router.delete("/commit/{commit}")
-async def delete_commit(database: str, branch: str, commit: str):
+async def delete_commit(commit: str):
     """ Delete commit {commit} except root commit """
-    raise NotImplementedError("This endpoint is not implemented yet")
-
+    try:
+        return service.delete_commit(commit)
+    except CommitDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Commit '{commit}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error deleting commit '{commit}': {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error deleting commit")
 
 
 # Calculation and specific modification operations
@@ -146,7 +178,7 @@ async def search(database: str, branch: str, search_request: SearchDatabaseReque
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Error searching database")
+        raise HTTPException(status_code=500, detail="Unexpected error searching database")
 
 @router.post("/database/{database}/branch/{branch}/evaluate")
 async def evaluate(database: str, branch: str, evaluate_request: EvaluateDatabaseRequest) -> EvaluateDatabaseRequest:
@@ -164,7 +196,7 @@ async def evaluate(database: str, branch: str, evaluate_request: EvaluateDatabas
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Error searching database")
+        raise HTTPException(status_code=500, detail="Unexpected error evaluating database")
 
 @router.post("/database/{database}/branch/{branch}/subTo/{newBranch}")
 async def sub(database: str, branch: str, newBranch: str, sub_request: List[str] = Body(...)):
@@ -186,7 +218,7 @@ async def sub(database: str, branch: str, newBranch: str, sub_request: List[str]
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Error searching database")
+        raise HTTPException(status_code=500, detail="Unexpected error subing database")
 
 @router.post("/database/{database}/branch/{branch}/cutTo/{newBranch}")
 async def cut(database: str, branch: str, newBranch: str, cut_request: Dict[str, str] = Body(...)):
@@ -208,4 +240,4 @@ async def cut(database: str, branch: str, newBranch: str, cut_request: Dict[str,
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Error searching database")
+        raise HTTPException(status_code=500, detail="Unexpected error cutting database")
