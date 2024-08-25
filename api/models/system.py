@@ -2,7 +2,7 @@ import enum
 
 from pydantic import BaseModel
 from typing import List, Optional, Union, Dict
-from pldag import CompilationSetting
+from hashlib import sha256
 
 class CreateDatabaseRequest(BaseModel):
     name: str
@@ -79,18 +79,22 @@ class DatabaseMeta(BaseModel):
     id:             str
     name:           str
     createdAt:      str
-    updatedAt:      str
-
+    
+    parentId:       Optional[str] = None
     description:    Optional[str] = None
-    compilation:    Optional[CompilationSetting] = None
-    nCombinations:  Optional[int] = None
-    nComposites:    Optional[int] = None
-    nPrimitives:    Optional[int] = None
 
 class Database(BaseModel):
 
     meta:           DatabaseMeta
     propositions:   List[PropositionStringUnionType]
+
+class DatabaseBranchPointer(BaseModel):
+
+    id: str
+    name: str
+
+    def sha256(self) -> str:
+        return sha256(self.name.encode()).hexdigest()
 
 class RemovePropositionsRequest(BaseModel):
     propositions: List[str]

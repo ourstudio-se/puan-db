@@ -1,0 +1,211 @@
+import logging
+from fastapi import APIRouter, HTTPException, Body
+from typing import List, Dict
+
+from api.models.search import (
+    SearchDatabaseRequest,
+    EvaluateDatabaseRequest,
+    SearchDatabaseResponse,
+)
+from api.services.database_service import (
+    DatabaseService,
+    Composite,
+    DatabaseExistsException,
+    BranchExistsException,
+    DatabaseDoesNotExistsException,
+    BranchDoesNotExistsException,
+    CommitDoesNotExistsException,
+    VariableMissingException,
+)
+
+logger = logging.getLogger(__name__)
+service = DatabaseService()
+
+# Create an instance of APIRouter
+router = APIRouter()
+
+# Common creating and modifying operations
+@router.get("/database")
+async def get_databases():
+    try:
+        return service.get_databases()
+    except Exception as e:
+        logger.error(f"Unexpected error getting databases: {e}")
+        raise HTTPException(status_code=500, detail="Error getting databases")
+
+@router.get("/database/{database}")
+async def get_database_info(database: str):
+    """Get info about {database}"""
+    try:
+        return service.get_database(database)
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=404, detail=f"Database '{database}' does not exist")
+    except Exception as e:
+        logger.error(f"Unexpected error getting database {database}: {e}")
+        raise HTTPException(status_code=500, detail="Error getting database")
+
+@router.get("/database/{database}/branch/{branch}")
+async def get_database_branch_propositions(database: str, branch: str):
+    """Get propositions on latest commit for {database}'s database branch"""
+    raise NotImplementedError("This endpoint is not implemented yet")
+
+@router.get("/commit/{commit}")
+async def get_databases_commit_propositions(commit: str):
+    """Get propositions on commit for {database}'s database branch"""
+    try:
+        return service.get_commit(commit)
+    except CommitDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Commit '{commit}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error getting commit '{commit}': {e}")
+        raise HTTPException(status_code=500, detail="Error getting database")
+
+
+@router.post("/database/{database}")
+async def create_database(database: str):
+    """Create a new database databased {database}. "main" branch is automatically created"""
+    try:
+        return service.create_database(database)
+    except DatabaseExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' already exists")
+    except Exception as e:
+        logger.error(f"Unexpected error creating database {database}: {e}")
+        raise HTTPException(status_code=500, detail="Error creating database")
+
+@router.post("/database/{database}/branch/{branch}")
+async def create_branch(database: str, branch: str):
+    """Create a new branch databased {branch} on database {database}"""
+    try:
+        return service.create_branch(database, branch)
+    except BranchExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' already exists")
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error creating database {database}: {e}")
+        raise HTTPException(status_code=500, detail="Error creating database")
+
+@router.post("/database/{database}/branch/{branch}/commit")
+async def commit_to_branch(database: str, branch: str, propositions: List[Composite] = Body(...)) -> str:
+    """Commit propositions to {database}'s branch {branch}."""
+    try:
+        return service.commit(database, branch, propositions)
+    except VariableMissingException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except Exception as e:
+        logger.error(f"Unexpected error creating database {database}: {e}")
+        raise HTTPException(status_code=500, detail="Error creating database")
+    
+
+@router.post("/database/{database}/branch/{branch}/rebase")
+async def rebase(database: str, branch: str, from_branch: str):
+    """ Rebases given branch (given in body) onto {branch}."""
+    raise NotImplementedError("This endpoint is not implemented yet")
+
+
+@router.delete("/database")
+async def delete_all():
+    """ Delete all databases """
+    raise NotImplementedError("This endpoint is not implemented yet")
+
+@router.delete("/database/{database}")
+async def delete_database(database: str):
+    """ Delete database {database} """
+    raise NotImplementedError("This endpoint is not implemented yet")
+
+@router.delete("/database/{database}/branch/{branch}")
+async def delete_branch(database: str, branch: str):
+    """ Delete branch {branch} except 'main' branch (use delete_database instead) """
+    raise NotImplementedError("This endpoint is not implemented yet")
+
+@router.delete("/commit/{commit}")
+async def delete_commit(database: str, branch: str, commit: str):
+    """ Delete commit {commit} except root commit """
+    raise NotImplementedError("This endpoint is not implemented yet")
+
+
+
+# Calculation and specific modification operations
+@router.post("/database/{database}/branch/{branch}/search")
+async def search(database: str, branch: str, search_request: SearchDatabaseRequest = Body(...)) -> SearchDatabaseResponse:
+    """ Finds a combination that satisfies db's constraints, on branch {branch} latest commit. """
+    try:
+        return service.search(
+            service.branch_latest_commit(database, branch), 
+            search_request
+        )
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except VariableMissingException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
+        raise HTTPException(status_code=500, detail="Error searching database")
+
+@router.post("/database/{database}/branch/{branch}/evaluate")
+async def evaluate(database: str, branch: str, evaluate_request: EvaluateDatabaseRequest) -> EvaluateDatabaseRequest:
+    """  Evaluates a combination on db's constraints, on commit {commit}. Default is latest commit. """
+    try:
+        return service.evaluate(
+            service.branch_latest_commit(database, branch),
+            evaluate_request
+        )
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except VariableMissingException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
+        raise HTTPException(status_code=500, detail="Error searching database")
+
+@router.post("/database/{database}/branch/{branch}/subTo/{newBranch}")
+async def sub(database: str, branch: str, newBranch: str, sub_request: List[str] = Body(...)):
+    """ Keeps only sub graph(s) under given nodes. This will be stored on a new branch given in body. """
+    try:
+        return service.sub_database(
+            database, 
+            branch,
+            newBranch,
+            sub_request,
+        )
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except BranchExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{newBranch}' does not exists")
+    except VariableMissingException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
+        raise HTTPException(status_code=500, detail="Error searching database")
+
+@router.post("/database/{database}/branch/{branch}/cutTo/{newBranch}")
+async def cut(database: str, branch: str, newBranch: str, cut_request: Dict[str, str] = Body(...)):
+    """ Removes, or cuts, sub graph(s) under given nodes. This will be stored on a new branch given in body. """
+    try:
+        return service.cut_database(
+            database, 
+            branch,
+            newBranch,
+            cut_request,
+        )
+    except DatabaseDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
+    except BranchDoesNotExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
+    except BranchExistsException:
+        raise HTTPException(status_code=400, detail=f"Branch '{newBranch}' does not exists")
+    except VariableMissingException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
+        raise HTTPException(status_code=500, detail="Error searching database")

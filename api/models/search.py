@@ -15,7 +15,7 @@ from api.models.system import (
 )
 
 class SolverType(str, enum.Enum):
-    default = "GLPK"
+    default = "default"
     brute = "brute"
     cplex = "cplex"
     gurobi = "gurobi"
@@ -24,18 +24,15 @@ class SearchDirection(str, enum.Enum):
     minimize = "minimize"
     maximize = "maximize"
 
-class SearchObjectiveField(BaseModel):
-    direction: SearchDirection
-    objective: Dict[str, int]
-
 class SearchSuchThatField(BaseModel):
     composite: PropositionStringUnionType
     equals: Bounds
 
 class SearchDatabaseRequest(BaseModel):
-    objectives: List[SearchObjectiveField]
+    objectives: List[Dict[str, int]]
     suchthat: SearchSuchThatField
     solver: Optional[SolverType] = "default"
+    direction: SearchDirection = SearchDirection.minimize
 
 class SearchSolutionVariable(BaseModel):
     id: str
@@ -48,5 +45,5 @@ class SearchSolution(BaseModel):
 class SearchDatabaseResponse(BaseModel):
     solutions: List[SearchSolution]
 
-class EvaluateDatabaseRequestResponse(BaseModel):
+class EvaluateDatabaseRequest(BaseModel):
     interpretations: List[SearchSolution]
