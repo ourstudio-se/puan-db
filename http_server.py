@@ -13,15 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, Dict
 from starlette.requests import Request
-from fastapi_sso.sso.google import GoogleSSO
-
-app = FastAPI()
-
-google_sso = GoogleSSO(
-    os.getenv('GOOGLE_CLIENT_ID'), 
-    os.getenv('GOOGLE_CLIENT_SECRET'), 
-    "http://localhost:3000/google/callback",
-)
 
 app = FastAPI()
 
@@ -34,14 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# handler = AzureBlobModelHandler(
-#     salt="",
-#     connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
-#     container=os.getenv('AZURE_STORAGE_CONTAINER')
-# )
+handler = AzureBlobModelHandler(
+    salt="",
+    connection_string=os.getenv('AZURE_STORAGE_CONNECTION_STRING'),
+    container=os.getenv('AZURE_STORAGE_CONTAINER')
+)
 
-from storage import LocalModelHandler
-handler = LocalModelHandler("", "db")
+# from storage import LocalModelHandler
+# handler = LocalModelHandler("", "db")
 
 def to_edges(model: PLDAG):
     return list(
@@ -80,17 +71,6 @@ def to_nodes(model: PLDAG, solution: Dict[str, complex]):
 @app.get('/')
 def home():
     return "Hello, World!"
-
-@app.get("/google/login")
-async def google_login():
-    with google_sso:
-        return await google_sso.get_login_redirect()
-
-@app.get("/google/callback")
-async def google_callback(request: Request):
-    with google_sso:
-        user = await google_sso.verify_and_process(request)
-    return user
 
 @app.get('/api/models/{model_name}')
 def get_model(model_name):
