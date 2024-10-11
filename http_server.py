@@ -3,7 +3,7 @@ import os
 import numpy as np
 import lexer
 from fastapi import FastAPI
-from pldag import Puan, Solution
+from pldag import PLDAG
 from puan_db_parser import Parser
 from itertools import chain, starmap
 from storage import AzureBlobModelHandler, ComputingDevice
@@ -11,7 +11,7 @@ from storage import AzureBlobModelHandler, ComputingDevice
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict
 from starlette.requests import Request
 from fastapi_sso.sso.google import GoogleSSO
 
@@ -43,7 +43,7 @@ app.add_middleware(
 from storage import LocalModelHandler
 handler = LocalModelHandler("", "db")
 
-def to_edges(model: Puan):
+def to_edges(model: PLDAG):
     return list(
         chain(
             starmap(
@@ -56,7 +56,7 @@ def to_edges(model: Puan):
         )
     )
 
-def to_nodes(model: Puan, solution: Solution):
+def to_nodes(model: PLDAG, solution: Dict[str, complex]):
     return list(
         map(
             lambda x: {
@@ -65,10 +65,10 @@ def to_nodes(model: Puan, solution: Solution):
                 "label": x[:5], 
                 "alias": model.id_to_alias(x),
                 "bound": {
-                    "lower": int(solution[x].bound.real),
-                    "upper": int(solution[x].bound.imag),
+                    "lower": int(solution[x].real),
+                    "upper": int(solution[x].imag),
                 },
-                "properties": model.data.get(x, {}),
+                "properties": {},
                 "bias": int(model._bvec[model._row(x)].real) if x in model.composites else None,
                 "children": model.dependencies(x) if x in model.composites else None,
                 "coefficients": model._amat[model._row(x)][model._amat[model._row(x)] != 0].tolist() if x in model.composites else None,
@@ -123,7 +123,7 @@ async def create_model(request: Request):
     if model_name in existing_models:
         raise HTTPException(status_code=400, detail="Model already exists")
 
-    model = Puan()
+    model = PLDAG()
     handler.save_model(model, model_name)
 
     return {
@@ -166,9 +166,9 @@ async def post_data(query_model: QueryModel):
             raise HTTPException(status_code=400, detail="No model set")
         
         comp_dev: ComputingDevice = ComputingDevice(model_name, handler)
-        model: Puan = comp_dev.get()
+        model: PLDAG = comp_dev.get()
 
-        if not isinstance(model, Puan):
+        if not isinstance(model, PLDAG):
             raise HTTPException(status_code=400, detail="Invalid database model")
 
         try:

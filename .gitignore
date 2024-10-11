@@ -208,3 +208,4 @@ secret.*.yaml
 test_client.py
 puan/
 *.puan
+db/

@@ -81,11 +81,11 @@ async def create_database(database: str):
         logger.error(f"Unexpected error creating database {database}: {e}")
         raise HTTPException(status_code=500, detail=f"Unexpected error creating database '{database}'")
 
-@router.post("/database/{database}/branch/{branch}")
-async def create_branch(database: str, branch: str):
+@router.post("/database/{database}/branch/{branch}/fromBranch/{from_branch}")
+async def create_branch(database: str, branch: str, from_branch: str):
     """Create a new branch databased {branch} on database {database}"""
     try:
-        return service.create_branch(database, branch)
+        return service.create_branch(database, branch, from_branch)
     except BranchExistsException:
         raise HTTPException(status_code=400, detail=f"Branch '{branch}' already exists")
     except DatabaseDoesNotExistsException:

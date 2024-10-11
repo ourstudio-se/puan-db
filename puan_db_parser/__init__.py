@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datatypes import *
 from typing import List, Dict, Any, Callable
-from pldag import Solution, Puan, Solver
+from pldag import PLDAG, Solver
 from functools import partial, reduce
 from copy import deepcopy
 import numpy as np
@@ -27,12 +27,14 @@ class Node:
         else:
             return n
     def __call__(self):
+        if 'properties' in self.kwargs:
+            del self.kwargs['properties']
         return self.func(*self.evaluate(self.args), **self.evaluate(self.kwargs))
     def __hash__(self) -> int:
         return hash(self())
 
 class Parser:
-    def __init__(self, model: Puan):
+    def __init__(self, model: PLDAG):
         self.model = deepcopy(model)
     def parse(self, tokens):
         if isinstance(tokens, PROPERTIES):
@@ -135,8 +137,8 @@ class Parser:
                 return [list(map(self.parse, token.arguments.items))], {}#self.arguments(token.properties)[1]
         elif isinstance(token, (ACTION_MAXIMIZE, ACTION_MINIMIZE)):
             if isinstance(token.argument, (LIST, PREDICATE)):
-                return [self.arguments(token.argument)[0], self.parse(token.suchthat), Solver.GLPK], {}
-            return [[self.arguments(token.argument)[0]], self.parse(token.suchthat), Solver.GLPK], {}
+                return [self.arguments(token.argument)[0], self.parse(token.suchthat), Solver.DEFAULT], {}
+            return [[self.arguments(token.argument)[0]], self.parse(token.suchthat), Solver.DEFAULT], {}
         elif "argument" in token.__dict__: # token is ACTION_GET, ACTION_DEL, ACTION_SUB, ACTION_CUT
             if isinstance(token, (ACTION_GET, ACTION_DEL)):
                 if isinstance(token.argument, (LIST, PREDICATE)):
@@ -194,13 +196,13 @@ class Parser:
                     )
                 )
             elif isinstance(result, (list, np.ndarray)):
-                if isinstance(result[0], Solution):
+                if isinstance(result[0], dict):
                     # We don't support multiple solutions from the UI
                     return self.model, result[0]
                 return self.model, self.model.propagate({})
-            elif isinstance(result, Solution):
+            elif isinstance(result, dict):
                 return self.model, result
-            elif isinstance(result, Puan):
+            elif isinstance(result, PLDAG):
                 return result, result.propagate({})
             else:
                 raise ValueError("Got unexpected result from parsing")
@@ -242,7 +244,7 @@ class Parser:
     def parse_predicate(self, data: Dict, predicate: PREDICATE) -> List[str]:
         return list(filter(lambda x: self.evaluate_predicate(x, data.get(x), predicate), data.keys()))
 
-def our_type(model: Puan, variable: str) -> str:
+def our_type(model: PLDAG, variable: str) -> str:
     if variable in model.primitives:
         return DATATYPE.PRIMITIVE
     elif variable in model.composites:

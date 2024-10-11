@@ -1,3 +1,4 @@
+from json import dumps as json_dumps, loads as json_loads
 from dataclasses import dataclass
 from hashlib import sha1
 from gzip import compress, decompress
@@ -46,26 +47,29 @@ class Commit(BaseModel):
     database_name:      str
     date:               str
     parents:            List[str]
-
-    # Raw data is stored but not exposed
-    data_bytes:         bytes = Field(None, exclude=True)
+    data:               List[Composite]
 
     @computed_field
     @property
     def id(self) -> str:
-        return sha1(self.data_bytes + self.database_name.encode()).hexdigest()
+        return sha1(dumps(self.data) + dumps(self.parents) + self.date.encode() + self.database_name.encode()).hexdigest()
     
-    @computed_field
-    @property
-    def data(self) -> List[Composite]:
-        return decompress_load(self.data_bytes)
+    def to_json(self) -> dict:
+        return self.model_dump_json()
+    
+    def dump(self) -> bytes:
+        return compress_dump(self.to_json())
+    
+    @staticmethod
+    def load(data: bytes) -> "Commit":
+        return Commit(**json_loads(decompress(data))) 
     
     def empty(database_name: str) -> "Commit":
         return Commit(
             database_name=database_name,
             date=timestamp(),
             parents=[],
-            data_bytes=compress_dump([]),
+            data=[],
         )
     
     def grandulate(self) -> "Commit":
@@ -76,11 +80,9 @@ class Commit(BaseModel):
             database_name=self.database_name,
             date=self.date,
             parents=self.parents,
-            data_bytes=compress_dump(
-                Commit.from_pldag(
-                    self.to_pldag()
-                )
-            ),
+            data=Commit.from_pldag(
+                self.to_pldag()
+            )
         )
     
     def to_pldag(self) -> PLDAG:
@@ -131,19 +133,42 @@ class Commit(BaseModel):
         )
 
 class Branch(BaseModel):
+    
+    database:   str
     name:       str
     commit_id:  str
 
-    def key(self, database: str) -> str:
-        return sha1((database + self.name).encode()).hexdigest()
+    @property
+    def id(self) -> str:
+        return sha1((self.database + self.name).encode()).hexdigest()
+    
+    def to_json(self) -> dict:
+        return self.model_dump_json()
+    
+    def dump(self) -> bytes:
+        return compress_dump(self.to_json())
+    
+    @staticmethod
+    def load(data: bytes) -> "Commit":
+        return Branch(**json_loads(decompress(data)))
 
 class Database(BaseModel):
     name:       str
     branches:   List[Branch]
 
+    @property
+    def id(self) -> str:
+        return sha1(self.name.encode()).hexdigest() + "-database"
+    
+    def to_json(self) -> dict:
+        return self.model_dump_json()
+    
+    def dump(self) -> bytes:
+        return compress_dump(self.to_json())
+    
     @staticmethod
-    def key(name: str) -> str:
-        return sha1(name.encode()).hexdigest() + "-database"
+    def load(data: bytes) -> "Commit":
+        return Database(**json_loads(decompress(data)))
     
 class DatabaseExistsException(Exception):
     pass
@@ -163,14 +188,41 @@ class CommitDoesNotExistsException(Exception):
 class VariableMissingException(Exception):
     pass
 
+
+@dataclass
+class StorageMiddleware:
+
+    _client: Redis
+    _version: str = '0.0.1'
+
+    def get(self, key: str):
+        return self._client.get(key+self._version)
+
+    def set(self, key: str, value: str):
+        return self._client.set(key+self._version, value)
+
+    def delete(self, key: str):
+        return self._client.delete(key+self._version)
+
+    def exists(self, key: str):
+        return self._client.exists(key+self._version)
+
+    def keys(self, pattern: str):
+        return self._client.keys(pattern+self._version)
+
+    def flushall(self):
+        return self._client.flushall()
+
 @dataclass
 class DatabaseService:
 
-    client: Redis = Redis(
-        host=config('REDIS_HOST', str, 'localhost'),
-        port=config('REDIS_PORT', int, 6379),
-        db=config('REDIS_DB', int, 0),
-        password=config('REDIS_PASSWORD', str, None),
+    client: StorageMiddleware = StorageMiddleware(
+        _client=Redis(
+            host=config('REDIS_HOST', str, 'localhost'),
+            port=config('REDIS_PORT', int, 6379),
+            db=config('REDIS_DB', int, 0),
+            password=config('REDIS_PASSWORD', str, None),
+        )
     )
     
     def get_database(self, database_name: str) -> Database:
@@ -189,21 +241,22 @@ class DatabaseService:
             raise CommitDoesNotExistsException()
         return decompress_load(self.client.get(commit_id))
 
-    def create_database(self, database_name: str):
-        if self.client.exists(Database.key(database_name)):
-            raise DatabaseExistsException()
+    def create_database(self, database_name: str, default_branch: str = 'main'):
         commit = Commit.empty(database_name)
+        branch = Branch(
+            name=default_branch, 
+            commit_id=commit.id,
+            database=database_name,
+        )
         database = Database(
             name=database_name, 
-            branches=[
-                Branch(
-                    name='main', 
-                    commit_id=commit.id,
-                )
-            ]
+            branch=branch.id,
         )
-        self.client.set(commit.id, compress_dump(commit))
-        self.client.set(Database.key(database_name), compress_dump(database))
+        if self.client.exists(database_name):
+            raise DatabaseExistsException()
+        
+        self.client.set(commit.id, commit.dump())
+        self.client.set(database.id, database.dump())
 
     def create_branch(self, database_name: str, branch_name: str, from_branch: str = 'main'):
         if not self.client.exists(Database.key(database_name)):

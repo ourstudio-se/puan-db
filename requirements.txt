@@ -1,7 +1,7 @@
 fastapi==0.111.0
 grpcio==1.62.2
 grpcio-tools==1.62.2
-pldag==0.9.11
+pldag==0.9.14
 npycvx==0.0.2
 azure-storage-blob==12.20.0
 maz==0.0.12

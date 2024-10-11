@@ -305,7 +305,7 @@ def test_case27():
     model.set_or(["x", "y"])
     case_27 = ACTION_MAXIMIZE(PROPERTIES({"x": 1}), ASSIGNMENT(VARIABLE("y"), INT_VALUE(1)))
     _, s = puan_db_parser.Parser(model).evaluate(case_27)
-    s_expected = model.solve([{'x': 1}], {'y': complex(1, 1)}, Solver.GLPK)[0]
+    s_expected = model.solve([{'x': 1}], {'y': complex(1, 1)}, Solver.DEFAULT)[0]
     assert s == s_expected
 def test_case28():
     """MINIMIZE {x:1} SUCHTHAT y=0 # Finds a configuration that minimizes x=1 such that y is 0"""
@@ -316,7 +316,7 @@ def test_case28():
         PROPERTIES({"x": 1}),
         ASSIGNMENT(VARIABLE("y"), INT_VALUE(0)))
     m, s = puan_db_parser.Parser(model).evaluate(case_28)
-    s_expected = model.solve([{'x': 1}], {'y': complex(0, 0)}, Solver.GLPK)[0]
+    s_expected = model.solve([{'x': 1}], {'y': complex(0, 0)}, Solver.DEFAULT)[0]
     assert s == s_expected
 
 def test_case29():
@@ -334,7 +334,7 @@ def test_case29():
         )
     )
     m, s = puan_db_parser.Parser(model).evaluate(case_29)
-    s_expected = model.solve([{'x': 1}], {model.set_and(["y", "z"]): complex(1,1)}, Solver.GLPK)[0]
+    s_expected = model.solve([{'x': 1}], {model.set_and(["y", "z"]): complex(1,1)}, Solver.DEFAULT)[0]
     assert s == s_expected
 
 def test_case30():
