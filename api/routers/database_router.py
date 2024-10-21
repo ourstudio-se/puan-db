@@ -1,243 +1,163 @@
+import base64
 import logging
-from fastapi import APIRouter, HTTPException, Body
-from typing import List, Dict
+import api.models.database as database_models
+import api.models.schemas as schema_models
 
-from api.models.search import (
-    SearchDatabaseRequest,
-    EvaluateDatabaseRequest,
-    SearchDatabaseResponse,
-)
-from api.services.database_service import (
-    DatabaseService,
-    Composite,
-    DatabaseExistsException,
-    BranchExistsException,
-    DatabaseDoesNotExistsException,
-    BranchDoesNotExistsException,
-    CommitDoesNotExistsException,
-    VariableMissingException,
-)
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from typing import List
+from pldag import PLDAG, CompilationSetting
+from pldag_solver_sdk import Solver as PLDAGSolver 
+from api.settings import EnvironmentVariables
 
-logger = logging.getLogger(__name__)
-service = DatabaseService()
-
-# Create an instance of APIRouter
 router = APIRouter()
+env = EnvironmentVariables()
+logger = logging.getLogger(__name__)
 
-# Common creating and modifying operations
-@router.get("/database")
-async def get_databases():
+# Dependency to get DB session
+def get_db():
+    db = database_models.SessionLocal()
     try:
-        return service.get_databases()
-    except Exception as e:
-        logger.error(f"Unexpected error getting databases: {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error getting databases")
+        yield db
+    finally:
+        db.close()
 
-@router.get("/database/{database}")
-async def get_database_info(database: str):
-    """Get info about {database}"""
+@router.post("/databases", response_model=schema_models.Database)
+def create_database(database: schema_models.DatabaseCreate, db: Session = Depends(get_db)):
+    db_database = database_models.Database(name=database.name, description=database.description)
+    db.add(db_database)
+    db.commit()
+    db.refresh(db_database)
+    return db_database
+
+@router.get("/databases", response_model=List[schema_models.DatabaseResponse])
+def get_databases(db: Session = Depends(get_db)):
+    db_databases = db.query(database_models.Database).all()
+    if not db_databases:
+        raise HTTPException(status_code=404, detail="No databases found")
+    return db_databases
+
+@router.get("/databases/{database_id}", response_model=schema_models.DatabaseResponse)
+def read_database(database_id: int, db: Session = Depends(get_db)):
+    db_database = db.query(database_models.Database).filter(database_models.Database.id == database_id).first()
+    if db_database is None:
+        raise HTTPException(status_code=404, detail="Database not found")
+    return db_database
+
+@router.post("/databases/{database_id}/versions", response_model=schema_models.VersionResponse)
+def create_version(database_id: str, version: schema_models.VersionCreate, db: Session = Depends(get_db)):
+    model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND)
+    for proposition in version.propositions:
+        proposition.set_model(model)
+
+    model.compile()
+    version_hash = model.sha1()
+
+    # Create or update the Version object
+    db_version = database_models.Version(
+        hash=version_hash,
+        database_id=int(database_id),
+        parent_hash=version.parent_hash,
+        message=version.message,
+        data=model.dump()
+    )
+
     try:
-        return service.get_database(database)
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=404, detail=f"Database '{database}' does not exist")
-    except Exception as e:
-        logger.error(f"Unexpected error getting database {database}: {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error getting database '{database}'")
+        # Use merge to insert or update based on primary key (hash)
+        merged_version = db.merge(db_version)
+        db.commit()
+        db.refresh(merged_version)
+        return merged_version
 
-@router.get("/database/{database}/branch/{branch}")
-async def get_database_branch_propositions(database: str, branch: str):
-    """Get propositions on latest commit for {database}'s database branch"""
-    try:
-        latest_commit = service.branch_latest_commit(database, branch)
-        return service.get_commit(latest_commit)
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except Exception as e:
-        logger.error(f"Unexpected error getting branch '{branch}' for database '{database}': {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error getting latest commit for branch '{branch}' and database '{database}'")
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A database integrity error occurred.")
 
-@router.get("/commit/{commit}")
-async def get_databases_commit_propositions(commit: str):
-    """Get propositions on commit for {database}'s database branch"""
-    try:
-        return service.get_commit(commit)
-    except CommitDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Commit '{commit}' does not exists")
     except Exception as e:
-        logger.error(f"Unexpected error getting commit '{commit}': {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error getting commit '{commit} ")
-
-
-@router.post("/database/{database}")
-async def create_database(database: str):
-    """Create a new database databased {database}. "main" branch is automatically created"""
-    try:
-        return service.create_database(database)
-    except DatabaseExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' already exists")
-    except Exception as e:
-        logger.error(f"Unexpected error creating database {database}: {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error creating database '{database}'")
-
-@router.post("/database/{database}/branch/{branch}/fromBranch/{from_branch}")
-async def create_branch(database: str, branch: str, from_branch: str):
-    """Create a new branch databased {branch} on database {database}"""
-    try:
-        return service.create_branch(database, branch, from_branch)
-    except BranchExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' already exists")
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except Exception as e:
-        logger.error(f"Unexpected error creating database {database}: {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error creating branch '{branch}' on database '{database}'")
-
-@router.post("/database/{database}/branch/{branch}/commit")
-async def commit_to_branch(database: str, branch: str, propositions: List[Composite] = Body(...)) -> str:
-    """Commit propositions to {database}'s branch {branch}."""
-    try:
-        return service.commit(database, branch, propositions)
-    except VariableMissingException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except Exception as e:
-        logger.error(f"Unexpected error committing to branch {branch} and database {database}: {e}")
-        raise HTTPException(status_code=500, detail=f"Unexpected error committing to branch '{branch}' and database '{database}'")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
     
-
-# @router.post("/database/{database}/branch/{branch}/rebase")
-# async def rebase(database: str, branch: str, from_branch: str):
-#     """ Rebases given branch (given in body) onto {branch}."""
-#     raise NotImplementedError("This endpoint is not implemented yet")
-
-
-@router.delete("/database")
-async def delete_all():
-    """ Delete all databases """
+@router.post("/databases/{database_id}/versions/from-bytes", response_model=schema_models.VersionResponse)
+def create_version_from_bytes(database_id: str, version: schema_models.VersionCreateFromBytes, db: Session = Depends(get_db)):
     try:
-        return service.delete_all()
-    except Exception as e:
-        logger.error(f"Unexpected error deleting all databases: {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error deleting all databases")
+        # Load the model from the received bytes data
+        model = PLDAG.load(base64.b64decode(version.data))  # Assuming PLDAG has a method to load from bytes
 
-@router.delete("/database/{database}")
-async def delete_database(database: str):
-    """ Delete database {database} """
-    try:
-        return service.delete_database(database)
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except Exception as e:
-        logger.error(f"Unexpected error deleting database '{database}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error deleting database")
+        # Compile the model (if necessary)
+        model.compile()
+        version_hash = model.sha1()
 
-@router.delete("/database/{database}/branch/{branch}")
-async def delete_branch(database: str, branch: str):
-    """ Delete branch {branch} except 'main' branch (use delete_database instead) """
-    try:
-        return service.delete_branch(database, branch)
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except Exception as e:
-        logger.error(f"Unexpected error deleting branch '{branch}' for database '{database}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error deleting branch")
-
-@router.delete("/commit/{commit}")
-async def delete_commit(commit: str):
-    """ Delete commit {commit} except root commit """
-    try:
-        return service.delete_commit(commit)
-    except CommitDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Commit '{commit}' does not exists")
-    except Exception as e:
-        logger.error(f"Unexpected error deleting commit '{commit}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error deleting commit")
-
-
-# Calculation and specific modification operations
-@router.post("/database/{database}/branch/{branch}/search")
-async def search(database: str, branch: str, search_request: SearchDatabaseRequest = Body(...)) -> SearchDatabaseResponse:
-    """ Finds a combination that satisfies db's constraints, on branch {branch} latest commit. """
-    try:
-        return service.search(
-            service.branch_latest_commit(database, branch), 
-            search_request
+        # Create or update the Version object
+        db_version = database_models.Version(
+            hash=version_hash,
+            database_id=int(database_id),
+            parent_hash=version.parent_hash,
+            message=version.message,
+            data=model.dump()  # Store the received bytes directly
         )
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except VariableMissingException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error searching database")
 
-@router.post("/database/{database}/branch/{branch}/evaluate")
-async def evaluate(database: str, branch: str, evaluate_request: EvaluateDatabaseRequest) -> EvaluateDatabaseRequest:
-    """  Evaluates a combination on db's constraints, on commit {commit}. Default is latest commit. """
-    try:
-        return service.evaluate(
-            service.branch_latest_commit(database, branch),
-            evaluate_request
-        )
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except VariableMissingException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error evaluating database")
+        merged_version = db.merge(db_version)
+        db.commit()
+        db.refresh(merged_version)
+        return merged_version
 
-@router.post("/database/{database}/branch/{branch}/subTo/{newBranch}")
-async def sub(database: str, branch: str, newBranch: str, sub_request: List[str] = Body(...)):
-    """ Keeps only sub graph(s) under given nodes. This will be stored on a new branch given in body. """
-    try:
-        return service.sub_database(
-            database, 
-            branch,
-            newBranch,
-            sub_request,
-        )
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except BranchExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{newBranch}' does not exists")
-    except VariableMissingException as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error subing database")
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A database integrity error occurred.")
 
-@router.post("/database/{database}/branch/{branch}/cutTo/{newBranch}")
-async def cut(database: str, branch: str, newBranch: str, cut_request: Dict[str, str] = Body(...)):
-    """ Removes, or cuts, sub graph(s) under given nodes. This will be stored on a new branch given in body. """
-    try:
-        return service.cut_database(
-            database, 
-            branch,
-            newBranch,
-            cut_request,
-        )
-    except DatabaseDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Database '{database}' does not exists")
-    except BranchDoesNotExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{branch}' does not exists")
-    except BranchExistsException:
-        raise HTTPException(status_code=400, detail=f"Branch '{newBranch}' does not exists")
-    except VariableMissingException as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Unexpected error searching database '{database}' branch '{branch}': {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error cutting database")
+        db.rollback()
+        print("Unexpected error: ", e)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+
+
+@router.get("/databases/{database_id}/versions/{hash}", response_model=schema_models.Graph)
+def read_version(hash: str, db: Session = Depends(get_db)):
+    db_version = db.query(database_models.Version).filter(database_models.Version.hash == hash).first()
+    if db_version is None:
+        raise HTTPException(status_code=404, detail="Version not found")
+    return schema_models.Graph.from_model(
+        version=schema_models.VersionResponse(
+            hash=db_version.hash,
+            database_id=db_version.database_id,
+            parent_hash=db_version.parent_hash,
+            message=db_version.message,
+            created_at=db_version.created_at
+        ),
+        model=PLDAG.load(db_version.data),
+    )
+
+@router.post("/databases/{database_id}/versions/{hash}/search", response_model=schema_models.SolverProblemResponse)
+def solve(hash: str, problem: schema_models.SolverProblemRequest, db: Session = Depends(get_db)):
+    db_version = db.query(database_models.Version).filter(database_models.Version.hash == hash).first()
+    if db_version is None:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    try:
+        solver = PLDAGSolver(url=env.SOLVER_API_URL)
+        model = PLDAG.load(db_version.data)
+        try:
+            solutions = solver.solve(
+                model, 
+                problem.objectives, 
+                {problem.assume.proposition.set_model(model): problem.assume.bounds.to_complex()} if problem.assume else {},
+                maximize=problem.direction.value == "maximize"
+            )
+        except Exception as e:
+            logger.error(f"Solver error: {str(e)}")
+            raise HTTPException(status_code=500, detail="No solver cluster available")
+
+        return schema_models.SolverProblemResponse(
+            solution_responses=[
+                schema_models.SolutionResponse(
+                    solution=solution.solution,
+                    error=solution.error
+                ) for solution in solutions
+            ]
+        )
+    except Exception as e:
+        logger.error(f"Solver error: {str(e)}")
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))

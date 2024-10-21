@@ -1,45 +1,42 @@
-FROM --platform=linux/amd64 ubuntu:20.04
+# Use a slim version of Python
+FROM python:3.9-slim
 
-# Install basic dependencies
-RUN apt-get update && \
-    apt-get install -y wget curl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    POETRY_VERSION=1.6.1 \
+    POETRY_HOME="/opt/poetry" \
+    PATH="$POETRY_HOME/bin:$PATH"
 
-# Download and install Miniconda
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh && \
-    /bin/bash miniconda.sh -b -p /opt/conda && \
-    rm miniconda.sh && \
-    /opt/conda/bin/conda clean -afy
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Add conda to PATH
-ENV PATH /opt/conda/bin:$PATH
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 - && \
+    ln -s /opt/poetry/bin/poetry /usr/local/bin/poetry
 
-# Install additional dependencies
-RUN apt-get update && \
-    apt-get install -y python3-dev libblas-dev liblapack-dev libatlas-base-dev gfortran && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create a conda environment and install Python and cvxopt
-RUN conda create -n myenv python=3.9 -y 
-RUN conda conda init & activate myenv
-RUN conda install -c conda-forge cvxopt
-
-# Activate the conda environment
-SHELL ["/bin/bash", "-c"]
-RUN echo "conda activate myenv" >> ~/.bashrc
-ENV PATH /opt/conda/envs/myenv/bin:$PATH
-
+# Set the working directory
 WORKDIR /app
 
-ENV APP_PORT=80
+# Copy poetry files
+COPY poetry.lock pyproject.toml /app/
 
-# Expose port 80
-EXPOSE 80
+# Clear Poetry cache before installation
+RUN poetry cache clear pypi --all
 
-COPY ./requirements.txt /app/requirements.txt 
+# Update dependencies and install them
+RUN poetry install --no-root --no-dev
 
-RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
+# Copy the rest of the application code
+COPY . /app
 
-COPY ./ /app
+# Expose the port the app runs on
+EXPOSE 8000
 
-CMD ["python", "http_server_json.py"]
+# Run migrations
+RUN poetry run alembic upgrade head
+
+# Set the command to run the application
+CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

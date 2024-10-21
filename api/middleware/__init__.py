@@ -3,6 +3,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+class PassThroughMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        return response
+
 class SimpleAuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: FastAPI, username: str, password: str):
         super().__init__(app)

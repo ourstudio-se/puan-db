@@ -1,19 +1,21 @@
-version: '3.8'
+version: "3.8"
 
 services:
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      POSTGRESQL_DATABASE_URL: "postgresql://postgres:mysecretpassword@localhost:5432/postgres"
+      SOLVER_API_URL: "http://localhost:9000"
+      USERNAME: "username"
+      PASSWORD: "password"
+      PORT: 8000
     ports:
       - "8000:8000"
-    depends_on:
-      - redis  # Replace with your database service name
-    environment:
-      REDIS_HOST: redis  # The hostname is the service name
-      REDIS_PORT: 6379   # Default Redis port, adjust for other databases
-    volumes:
-      - .:/app
+    networks:
+      - my_network
 
-  redis:
-    image: redis:6.2-alpine  # Use the official Redis image
-    ports:
-      - "6379:6379"  # Expose the Redis port
+networks:
+  my_network:
+    external: true

@@ -1,8 +1,8 @@
 # database.py
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from settings import EnvironmentVariables
+from api.settings import EnvironmentVariables
 
 env = EnvironmentVariables()
 
@@ -29,8 +29,9 @@ class Version(Base):
 
     hash = Column(String, primary_key=True, index=True)
     database_id = Column(Integer, ForeignKey('databases.id'), nullable=False)
-    parent_hashes = Column(Text, nullable=True)  # Consider using JSON if storing multiple hashes
+    parent_hash = Column(String, ForeignKey('versions.hash'), nullable=True)
     message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    data = Column(LargeBinary)  # This is the new binary field
 
     database = relationship("Database", back_populates="versions")
