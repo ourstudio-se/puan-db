@@ -6,17 +6,20 @@ authors = ["znittzel <rikard@ourstudio.se>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-fastapi = "^0.115.2"
-pldag = "^0.9.17"
+python = "^3.12"
+fastapi = "^0.115.3"
+pldag = "^0.10.0"
 redis = "^5.1.1"
 uvicorn = "^0.32.0"
 sqlalchemy = "^2.0.36"
 psycopg2-binary = "^2.9.10"
 alembic = "^1.13.3"
 pydantic-settings = "^2.5.2"
-pldag-solver-sdk = "^0.1.0"
+pldag-solver-sdk = "^0.1.1"
 
+[tool.poetry.dev-dependencies]
+ipdb = "^0.13.9"
+debugpy = "^1.6.5"
 
 [build-system]
 requires = ["poetry-core"]

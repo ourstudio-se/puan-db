@@ -1,21 +1,56 @@
-version: "3.8"
-
 services:
+  db:
+    container_name: database
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /data/postgres
+      POSTGRES_DB: puan
+    volumes:
+      - db:/data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - puanet
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d puan" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  solver:
+    container_name: solver
+    image: znittzel/puan-solver-orchestrator:latest
+    networks:
+      - puanet
+    environment:
+      RUN_TASKS_LOCALLY: true
+    ports:
+      - "9000:8000"
+
   api:
+    container_name: api
     build:
       context: .
       dockerfile: Dockerfile
     environment:
-      POSTGRESQL_DATABASE_URL: "postgresql://postgres:mysecretpassword@localhost:5432/postgres"
-      SOLVER_API_URL: "http://localhost:9000"
-      USERNAME: "username"
-      PASSWORD: "password"
-      PORT: 8000
+      POSTGRESQL_DATABASE_URL: "postgresql://postgres:postgres@db:5432/puan"
+      SOLVER_API_URL: "http://solver:8000"
+    command: >
+      /bin/sh -c "poetry run alembic upgrade head && poetry run uvicorn main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - puanet
     ports:
       - "8000:8000"
-    networks:
-      - my_network
-
+  
 networks:
-  my_network:
-    external: true
+  puanet:
+    driver: bridge
+
+volumes:
+  db:

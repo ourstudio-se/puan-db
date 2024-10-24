@@ -3,7 +3,7 @@ import api.models.schemas as schema_models
 
 from fastapi import APIRouter, HTTPException
 from pldag_solver_sdk import Solver as PLDAGSolver 
-from pldag import PLDAG, CompilationSetting, Solver
+from pldag import PLDAG, CompilationSetting
 from itertools import starmap
 
 from api.settings import EnvironmentVariables

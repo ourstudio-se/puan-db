@@ -1,5 +1,5 @@
 # Use a slim version of Python
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -29,14 +29,14 @@ RUN poetry cache clear pypi --all
 # Update dependencies and install them
 RUN poetry install --no-root --no-dev
 
+# Ensure the virtual environment's bin directory is in PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Copy the rest of the application code
 COPY . /app
 
 # Expose the port the app runs on
 EXPOSE 8000
-
-# Run migrations
-RUN poetry run alembic upgrade head
 
 # Set the command to run the application
 CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
