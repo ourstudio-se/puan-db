@@ -1,163 +1,369 @@
-import base64
 import logging
-import api.models.database as database_models
-import api.models.schemas as schema_models
+import api.models.schema as schema_models
+import api.models.typed_model as typed_models
+import api.models.query as query_models
+import api.models.database_search as database_search
+import api.models.untyped_model as untyped_models
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from typing import List
-from pldag import PLDAG, CompilationSetting
-from pldag_solver_sdk import Solver as PLDAGSolver 
 from api.settings import EnvironmentVariables
+from api.storage.databases import SchemaStorage, ModelStorage
+
+from pldag import PLDAG
+from fastapi import APIRouter, HTTPException, Depends, Body
+from itertools import starmap
+from typing import List, Optional
 
 router = APIRouter()
 env = EnvironmentVariables()
 logger = logging.getLogger(__name__)
 
-# Dependency to get DB session
-def get_db():
-    db = database_models.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_schema_storage():
+    yield SchemaStorage(env.DATABASE_URL)
 
-@router.post("/databases", response_model=schema_models.Database)
-def create_database(database: schema_models.DatabaseCreate, db: Session = Depends(get_db)):
-    db_database = database_models.Database(name=database.name, description=database.description)
-    db.add(db_database)
-    db.commit()
-    db.refresh(db_database)
-    return db_database
+def get_model_storage():
+    yield ModelStorage(env.DATABASE_URL)
 
-@router.get("/databases", response_model=List[schema_models.DatabaseResponse])
-def get_databases(db: Session = Depends(get_db)):
-    db_databases = db.query(database_models.Database).all()
-    if not db_databases:
-        raise HTTPException(status_code=404, detail="No databases found")
-    return db_databases
+@router.get("/databases", response_model=List[str])
+async def get_databases(storage: SchemaStorage = Depends(get_schema_storage)):
+    return storage.get_keys()
 
-@router.get("/databases/{database_id}", response_model=schema_models.DatabaseResponse)
-def read_database(database_id: int, db: Session = Depends(get_db)):
-    db_database = db.query(database_models.Database).filter(database_models.Database.id == database_id).first()
-    if db_database is None:
-        raise HTTPException(status_code=404, detail="Database not found")
-    return db_database
-
-@router.post("/databases/{database_id}/versions", response_model=schema_models.VersionResponse)
-def create_version(database_id: str, version: schema_models.VersionCreate, db: Session = Depends(get_db)):
-    model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND)
-    for proposition in version.propositions:
-        proposition.set_model(model)
-
-    model.compile()
-    version_hash = model.sha1()
-
-    # Create or update the Version object
-    db_version = database_models.Version(
-        hash=version_hash,
-        database_id=int(database_id),
-        parent_hash=version.parent_hash,
-        message=version.message,
-        data=model.dump()
-    )
-
-    try:
-        # Use merge to insert or update based on primary key (hash)
-        merged_version = db.merge(db_version)
-        db.commit()
-        db.refresh(merged_version)
-        return merged_version
-
-    except IntegrityError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="A database integrity error occurred.")
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+@router.post("/databases", response_model=schema_models.RequestOk)
+async def create_database(schema_request: schema_models.DatabaseSchema, storage: SchemaStorage = Depends(get_schema_storage)):
     
-@router.post("/databases/{database_id}/versions/from-bytes", response_model=schema_models.VersionResponse)
-def create_version_from_bytes(database_id: str, version: schema_models.VersionCreateFromBytes, db: Session = Depends(get_db)):
+    if storage.exists(schema_request.name):
+        raise HTTPException(status_code=409, detail="Database already exists")
+    
     try:
-        # Load the model from the received bytes data
-        model = PLDAG.load(base64.b64decode(version.data))  # Assuming PLDAG has a method to load from bytes
+        storage.set(schema_request.name, schema_request)
+        return schema_models.RequestOk(message=f"Database created")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating database: {str(e)}")
+    
+@router.delete("/databases/{database}", response_model=schema_models.RequestOk)
+async def delete_database(
+    database: str, 
+    schema_storage: SchemaStorage = Depends(get_schema_storage),
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    try:
+        model_storage.delete(database)
+        schema_storage.delete(database)
+        return schema_models.RequestOk(message=f"Database deleted")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting database: {str(e)}")
+    
+@router.patch("/databases/{database}", response_model=schema_models.RequestOk)
+async def update_database(
+    database: str, 
+    schema: schema_models.Schema = Body(...), 
+    schema_storage: SchemaStorage = Depends(get_schema_storage),
+    model_storage: ModelStorage = Depends(get_model_storage),
+):
 
-        # Compile the model (if necessary)
-        model.compile()
-        version_hash = model.sha1()
+    current_database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+    if current_database_schema is None:
+        raise HTTPException(status_code=404, detail="Database not found")
+    
+    current_model: typed_models.Model = model_storage.get(database)
+    if current_model is not None:
+        # Validate data before updating schema
+        updated_model = typed_models.Model(
+            model_schema=schema,
+            data=current_model.data,
+        )
+        # Set model with updated schema
+        model_storage.set(database, updated_model)
+    
+    current_database_schema.schema = schema
+    schema_storage.set(database, current_database_schema)
+    return schema_models.RequestOk(message=f"Database updated")
+    
+@router.get("/databases/{database}", response_model=typed_models.Model, description="Get schema and data from the database {database}")
+async def get_database(database: str, schema_storage: SchemaStorage = Depends(get_schema_storage), model_storage: ModelStorage = Depends(get_model_storage)):
+    
+    if not schema_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database not found")
+    
+    # Get data if it exists
+    data = model_storage.get(database)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Database has no data")
+    
+    # Get data
+    return data
 
-        # Create or update the Version object
-        db_version = database_models.Version(
-            hash=version_hash,
-            database_id=int(database_id),
-            parent_hash=version.parent_hash,
-            message=version.message,
-            data=model.dump()  # Store the received bytes directly
+@router.get("/databases/{database}/schema", response_model=schema_models.DatabaseSchema)
+async def get_database(database: str, storage: SchemaStorage = Depends(get_schema_storage)):
+    schema: schema_models.DatabaseSchema = storage.get(database)
+    if schema is None:
+        raise HTTPException(status_code=404, detail="Database not found")
+    return schema
+
+@router.get("/databases/{database}/data", response_model=typed_models.Model)
+async def get_data(database: str, model_storage: ModelStorage = Depends(get_model_storage)):
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database data not found")
+    
+    # Get data from database
+    return model_storage.get(database)
+    
+@router.post(
+    "/databases/{database}/data/insert",
+    description="Insert data into the database. Validation is done against the schema before insertion.",
+)
+async def insert(
+    database: str, 
+    data: typed_models.SchemaData, 
+    schema_storage: SchemaStorage = Depends(get_schema_storage),
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    
+    if not schema_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database not found")
+    
+    # We need to fetch schema to validate data
+    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+
+    # Need to fetch current data to merge with new data
+    current_model: typed_models.Model = model_storage.get(database)
+    if current_model is not None:
+        # Merge data with existing data
+        # Will raise an exception if data is invalid
+        model = current_model.merge_data(data)
+    else:
+        # Attach data and schema into a new model
+        # Will raise an exception if data is invalid
+        model = typed_models.Model(
+            model_schema=database_schema.schema, 
+            data=data,
         )
 
-        merged_version = db.merge(db_version)
-        db.commit()
-        db.refresh(merged_version)
-        return merged_version
+    # Insert data into database
+    model_storage.set(database, model)
+    return schema_models.RequestOk(message=f"Data inserted")
 
-    except IntegrityError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="A database integrity error occurred.")
+@router.post(
+    "/databases/{database}/data/overwrite",
+    description="Overwrite data in the database. Validation is done against the schema before insertion."
+)
+async def overwrite(
+    database: str, 
+    data: typed_models.SchemaData, 
+    schema_storage: SchemaStorage = Depends(get_schema_storage),
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    
+    if not schema_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database not found")
+    
+    # Validate each data element against the schema
+    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
 
-    except Exception as e:
-        db.rollback()
-        print("Unexpected error: ", e)
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
-
-
-@router.get("/databases/{database_id}/versions/{hash}", response_model=schema_models.Graph)
-def read_version(hash: str, db: Session = Depends(get_db)):
-    db_version = db.query(database_models.Version).filter(database_models.Version.hash == hash).first()
-    if db_version is None:
-        raise HTTPException(status_code=404, detail="Version not found")
-    return schema_models.Graph.from_model(
-        version=schema_models.VersionResponse(
-            hash=db_version.hash,
-            database_id=db_version.database_id,
-            parent_hash=db_version.parent_hash,
-            message=db_version.message,
-            created_at=db_version.created_at
-        ),
-        model=PLDAG.load(db_version.data),
+    # Create model from data
+    # Will raise an exception if data is invalid
+    model = typed_models.Model(
+        model_schema=database_schema.schema, 
+        data=data,
     )
 
-@router.post("/databases/{database_id}/versions/{hash}/search", response_model=schema_models.SolverProblemResponse)
-def solve(hash: str, problem: schema_models.SolverProblemRequest, db: Session = Depends(get_db)):
-    db_version = db.query(database_models.Version).filter(database_models.Version.hash == hash).first()
-    if db_version is None:
-        raise HTTPException(status_code=404, detail="Version not found")
-    
-    try:
-        solver = PLDAGSolver(url=env.SOLVER_API_URL)
-        model = PLDAG.load(db_version.data)
-        try:
-            solutions = solver.solve(
-                model, 
-                problem.objectives, 
-                {problem.assume.proposition.set_model(model): problem.assume.bounds.to_complex()} if problem.assume else {},
-                maximize=problem.direction.value == "maximize"
-            )
-        except Exception as e:
-            logger.error(f"Solver error: {str(e)}")
-            raise HTTPException(status_code=500, detail="No solver cluster available")
+    # Insert data into database
+    model_storage.set(database, model)
+    return schema_models.RequestOk(message=f"Data inserted")
 
-        return schema_models.SolverProblemResponse(
-            solution_responses=[
-                schema_models.SolutionResponse(
-                    solution=solution.solution,
-                    error=solution.error
-                ) for solution in solutions
-            ]
+@router.post(
+    "/databases/{database}/data/validate",
+    description="Validate data before inserting into database. Merges with existing data if it exists before validation."
+)
+async def validate(
+    database: str, 
+    data: typed_models.SchemaData, 
+    schema_storage: SchemaStorage = Depends(get_schema_storage),
+):
+    
+    if not schema_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database not found")
+    
+    # Validate each data element against the schema
+    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+
+    # Test to construct a Model from data and schema
+    # Will raise an exception if data is invalid
+    typed_models.Model(
+        model_schema=database_schema.schema, 
+        data=data,
+    )
+
+    return schema_models.RequestOk(message=f"Data is valid")
+
+@router.get(
+    "/databases/{database}/data/items/{id}", 
+    response_model=typed_models.CompPrimitive,
+    description="Get element {id} from the database {database}"
+)
+async def get_data_item(
+    database: str, 
+    id: str,
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database has no data")
+    
+    # Get data from database
+    model: typed_models.Model = model_storage.get(database)
+    
+    # Get item, None if not found
+    item = model.data.get(id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Return data
+    return item
+
+@router.patch(
+    "/databases/{database}/data/items/{id}", 
+    response_model=schema_models.RequestOk,
+    description="Update element {id} from the database {database}"
+)
+async def update_data_item(
+    database: str,
+    id: str,
+    proposition: typed_models.CompPrimitive, 
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database has no data")
+    
+    # Get data from database
+    model: typed_models.Model = model_storage.get(database)
+    
+    # Try to find item
+    item = model.data.get(id)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Item {proposition.id} not found")
+    
+    # Update data
+    # Will raise an exception if data is invalid
+    updated_model: typed_models.Model = model.update({id: proposition})
+    
+    # No errors, save data
+    model_storage.set(database, updated_model)
+    
+    return schema_models.RequestOk(message=f"Data updated")
+
+@router.delete(
+    "/databases/{database}/data/items/{id}", 
+    response_model=schema_models.RequestOk,
+    description="Deletes element {id} from the database {database}"
+)
+async def delete_data_item(
+    database: str, 
+    id: str, 
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    
+    # Get data from database
+    model: typed_models.Model = model_storage.get(database)
+    
+    # Check if data exists
+    if not model.data.exists(id):
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Delete data
+    updated_model = model.delete([id])
+    
+    # No errors, save data
+    model_storage.set(database, updated_model)
+    
+    return schema_models.RequestOk(message=f"Data deleted")
+
+@router.get(
+    "/databases/{database}/data/items",
+    description="Search for data items in the database {database}"
+)
+async def search_data_items(
+    database: str, 
+    query: Optional[query_models.SearchQuery] = Body(None), 
+    model_storage: ModelStorage = Depends(get_model_storage)
+):
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database has no data")
+    
+    # Get data from database
+    model: typed_models.Model = model_storage.get(database)
+    
+    # Search data
+    if query is None:
+        return model.data
+    
+    return model.search_items(query)
+
+@router.post(
+    "/databases/{database}/search",
+    description="Search for a combination in database {database}",
+    response_model=database_search.DatabaseSearchResponse,
+)
+async def search(
+    database: str, 
+    query: database_search.DatabaseSearchRequest = Body(...), 
+    model_storage: ModelStorage = Depends(get_model_storage),
+    schema_storage: SchemaStorage = Depends(get_schema_storage)
+):
+    if not schema_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database not found")
+
+    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database has no data")
+    
+    # Get data from database
+    model: typed_models.Model = model_storage.get(database)
+
+    # Append input data propositions to the model
+    if suchthat := query.suchthat:
+        if suchthat.assume.data is not None:
+            model = model.merge_data(suchthat.assume.data)
+
+    # Construct a pldag model from the data model
+    pldag_model: PLDAG = model.to_pldag()
+
+    # Construct the assume ID from suchthat data
+    assume = {}
+    if suchthat := query.suchthat:
+        assume_id = pldag_model.id_from_alias(suchthat.assume.return_)
+        if assume_id is None:
+            raise HTTPException(status_code=400, detail=f"Return proposition '{suchthat.assume.return_}' not found in model")
+        assume[assume_id] = complex(suchthat.to_equal.lower, suchthat.to_equal.upper)
+
+    try:
+        solutions = env.solver.solve(
+            model=pldag_model,
+            assume=assume,
+            objectives=query.objectives_dict(model), 
+            maximize=query.direction == "maximize",
         )
     except Exception as e:
         logger.error(f"Solver error: {str(e)}")
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Solver error. Please check logs.")
+
+    return database_search.DatabaseSearchResponse.from_untyped_solutions(
+        solutions=[
+            untyped_models.SolutionResponse(
+                solution=dict(
+                    starmap(
+                        lambda k,v: (
+                            pldag_model.id_to_alias(k) or k,
+                            v
+                        ),
+                        filter(
+                            lambda x: not pldag_model._svec[pldag_model._imap[x[0]]],
+                            solution.solution.items()
+                        ),
+                    )
+                ),
+                error=solution.error
+            ) for solution in solutions
+        ],
+        model=model,
+        schema=database_schema.schema
+    )

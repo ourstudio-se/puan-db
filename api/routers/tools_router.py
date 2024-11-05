@@ -1,21 +1,20 @@
 import logging
-import api.models.schemas as schema_models
+import api.models.untyped_model as schema_models
 
-from fastapi import APIRouter, HTTPException
-from pldag_solver_sdk import Solver as PLDAGSolver 
+from fastapi import APIRouter, HTTPException, Query
 from pldag import PLDAG, CompilationSetting
 from itertools import starmap
 
 from api.settings import EnvironmentVariables
+from api.tools import timer
 
 router = APIRouter()
 env = EnvironmentVariables()
 logger = logging.getLogger(__name__)
 
 @router.post("/tools/search", response_model=schema_models.SolverProblemResponse)
-def solve(model_problem: schema_models.ToolsSearchModel):
+def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: bool = Query(False, alias="onlyPrimitives")):
     try:
-        solver = PLDAGSolver(url=env.SOLVER_API_URL)
         model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND)
         for proposition in model_problem.model:
             proposition.set_model(model)
@@ -25,17 +24,20 @@ def solve(model_problem: schema_models.ToolsSearchModel):
             assume_id = model_problem.problem.assume.proposition.set_model(model)
 
         model.compile()
+        assume = {assume_id: model_problem.problem.assume.bounds.to_complex()} if assume_id else {}
+
         try:
-            solutions = solver.solve(
-                model, 
-                model_problem.problem.objectives, 
-                {assume_id: model_problem.problem.assume.bounds.to_complex()} if assume_id else {},
-                maximize=model_problem.problem.direction.value == "maximize"
+            solutions = env.solver.solve(
+                model=model,
+                assume=assume,
+                objectives=model_problem.problem.objectives,
+                maximize=model_problem.problem.direction.value == "maximize",
             )
         except Exception as e:
             logger.error(f"Solver error: {str(e)}")
-            raise HTTPException(status_code=500, detail="No solver cluster available / could not solve")
+            raise HTTPException(status_code=500, detail="Solver error. Please check logs.")
 
+        primitive_variables = model.primitives.tolist()
         return schema_models.SolverProblemResponse(
             solution_responses=[
                 schema_models.SolutionResponse(
@@ -45,7 +47,10 @@ def solve(model_problem: schema_models.ToolsSearchModel):
                                 model.id_to_alias(k) or k,
                                 v
                             ),
-                            solution.solution.items(),
+                            filter(
+                                lambda x: (not model._svec[model._imap[x[0]]]) and (x[1] != 0) and (not only_primitives or x[0] in primitive_variables),
+                                solution.solution.items()
+                            ),
                         )
                     ),
                     error=solution.error

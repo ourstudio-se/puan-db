@@ -1,24 +1,16 @@
 services:
   db:
+    image: "redis:latest"
     container_name: database
-    image: postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      PGDATA: /data/postgres
-      POSTGRES_DB: puan
-    volumes:
-      - db:/data/postgres
     ports:
-      - "5432:5432"
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - puanet
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d puan" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   solver:
     container_name: solver
@@ -35,11 +27,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: znittzel/puan-db:latest
     environment:
-      POSTGRESQL_DATABASE_URL: "postgresql://postgres:postgres@db:5432/puan"
+      DATABASE_URL: "redis://database:6379/0"
       SOLVER_API_URL: "http://solver:8000"
     command: >
-      /bin/sh -c "poetry run alembic upgrade head && poetry run uvicorn main:app --host 0.0.0.0 --port 8000"
+      /bin/sh -c "poetry run uvicorn main:app --host 0.0.0.0 --port 8000"
     depends_on:
       db:
         condition: service_healthy

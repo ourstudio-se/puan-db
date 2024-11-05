@@ -1,70 +1,30 @@
 # schemas.py
-
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 from datetime import datetime
 from api.models.system import Proposition, Bounds
 from pldag import PLDAG
-from itertools import chain
+from itertools import chain, starmap
 from enum import Enum
-
-class Version(BaseModel):
-    
-    hash: str
-    database_id: int
-    data: bytes
-
-    parent_hash: Optional[str] = None
-    message: Optional[str] = None
-    created_at: datetime = datetime.now()
-
-    class Config:
-        orm_mode = True
-
-class VersionCreate(BaseModel):
-    propositions: List[Proposition]
-    parent_hash: Optional[str] = None
-    message: Optional[str] = None
-
-class VersionCreateFromBytes(BaseModel):
-    data: str # Base64 encoded
-    parent_hash: Optional[str] = None
-    message: Optional[str] = None
 
 class DatabaseBase(BaseModel):
     name: str
     description: Optional[str] = None
 
 class DatabaseCreate(DatabaseBase):
-    pass
+    propositions: List[Proposition]
 
 class Database(DatabaseBase):
-    id: int
     created_at: datetime
-    versions: List[Version] = []
-
-    class Config:
-        orm_mode = True
-
-class VersionResponse(BaseModel):
-    hash: str
-    database_id: int
-    parent_hash: Optional[str] = None
-    message: Optional[str] = None
-    created_at: datetime
-
-    class Config:
-        orm_mode = True
+    data_hash: str
 
 class DatabaseResponse(BaseModel):
-    id: int
     name: str
     description: Optional[str] = None
     created_at: datetime
-    versions: List[VersionResponse] = []
 
-    class Config:
-        orm_mode = True
+class DatabaseCreateFromBytes(DatabaseBase):
+    data: str
 
 class Edge(BaseModel):
     source: str
@@ -86,12 +46,12 @@ class Graph(BaseModel):
 
     edges: List[Edge]
     nodes: List[Node]
-    version: VersionResponse 
+    database: Database 
 
     @staticmethod
-    def from_model(version: VersionResponse, model: PLDAG, solution: Dict[str, complex] = {}) -> Dict[str, List]:
+    def from_model(database: Database, model: PLDAG, solution: Dict[str, complex] = {}) -> Dict[str, List]:
         return Graph(
-            version=version,
+            database=database,
             edges=Graph.to_edges(model),
             nodes=Graph.to_nodes(model, solution)
         )
@@ -167,3 +127,36 @@ class ToolsSearchModel(BaseModel):
 
     model: List[Proposition]
     problem: SolverProblemRequest
+
+class EvaluateRequest(BaseModel):
+
+    variables: Dict[str, Bounds]
+
+    def to_complex(self) -> dict:
+        return dict(
+            starmap(
+                lambda k,v: (
+                    k,
+                    complex(v.lower, v.upper)
+                ),
+                self.variables.items()
+            )
+        )
+
+class EvaluateResponse(BaseModel):
+
+    variables: Dict[str, Bounds]
+
+    @staticmethod
+    def from_complex(complex_values: Dict[str, complex]) -> "EvaluateResponse":
+        return EvaluateResponse(
+            variables=dict(
+                starmap(
+                    lambda k,v: (
+                        k,
+                        Bounds(lower=v.real, upper=v.imag)
+                    ),
+                    complex_values.items()
+                )
+            )
+        )

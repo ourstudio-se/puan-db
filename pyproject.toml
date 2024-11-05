@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "puan-db"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["znittzel <rikard@ourstudio.se>"]
 readme = "README.md"
@@ -11,11 +11,8 @@ fastapi = "^0.115.3"
 pldag = "^0.10.0"
 redis = "^5.1.1"
 uvicorn = "^0.32.0"
-sqlalchemy = "^2.0.36"
-psycopg2-binary = "^2.9.10"
-alembic = "^1.13.3"
 pydantic-settings = "^2.5.2"
-pldag-solver-sdk = "^0.1.1"
+pldag-solver-sdk = "^0.1.5"
 
 [tool.poetry.dev-dependencies]
 ipdb = "^0.13.9"
