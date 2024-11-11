@@ -1,40 +1,34 @@
-# Use a slim version of Python
-FROM python:3.12-slim
+FROM python:3.12.3-slim as builder
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    POETRY_VERSION=1.6.1
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
+    libopenblas-dev
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install poetry==1.8.3
 
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 - && \
-    ln -s /root/.local/bin/poetry /usr/local/bin/poetry
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
-# Set the working directory
 WORKDIR /app
 
-# Copy poetry files
-COPY poetry.lock pyproject.toml /app/
+COPY pyproject.toml poetry.lock ./
+RUN poetry install && rm -rf $POETRY_CACHE_DIR
 
-# Clear Poetry cache before installation
-RUN poetry cache clear pypi --all
+FROM python:3.12.3-slim as runtime
 
-# Update dependencies and install them
-RUN poetry install --no-root --no-dev
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
 
-# Ensure the virtual environment's bin directory is in PATH
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
-# Copy the rest of the application code
-COPY . /app
+COPY . .
 
-# Expose the port the app runs on
 EXPOSE 8000
 
-# Set the command to run the application
-CMD ["poetry", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+USER 65534
+
+ENTRYPOINT ["fastapi", "run", "main.py", "--port", "8000"]

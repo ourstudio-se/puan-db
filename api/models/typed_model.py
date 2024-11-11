@@ -28,7 +28,7 @@ class Primitive(BaseModel):
         # Get the specific schema properties of the node
         schema_primitive_properties = schema.primitives.get(self.dtype, schema.composites.get(self.dtype))
         if schema_primitive_properties is None:
-            if self.properties != {}:
+            if self.properties:
                 raise ValueError(f"Dtype '{self.dtype}' has no properties in schema but has properties in data ({id})")
         
         for model_property in self.properties:
@@ -44,7 +44,7 @@ class Primitive(BaseModel):
                 if schema_property.dtype not in self.properties:
                     continue
                 node_property = self.properties[schema_property.dtype]
-                if not type(node_property) == type_map[schema_property_base.dtype]:
+                if not isinstance(node_property, type_map[schema_property_base.dtype]):
                     raise ValueError(f"Property '{schema_property.dtype}' for {id} is not of type {schema_property_base.dtype.value}")
 
     def validate_schema(self, id: str, model: Dict[str, "CompPrimitive"], schema: schema_models.Schema) -> Optional["SchemaPropositionError"]:

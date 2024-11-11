@@ -8,10 +8,10 @@ import redis
 class EnvironmentVariables(BaseSettings):
     
     # Required settings
-    DATABASE_URL:               str
-    SOLVER_API_URL:             str
+    SOLVER_API_URL:                     str
 
     # Optional settings
+    DATABASE_URL: Optional[str]         = None
     CACHE_URL:  Optional[str]           = None
     USERNAME:   Optional[str]           = None
     PASSWORD:   Optional[str]           = None
@@ -32,10 +32,7 @@ class EnvironmentVariables(BaseSettings):
     def solver(self):
         # Initialize solver instance only once
         if not self._solver_instance:
-            try:
-                self._solver_instance = PLDAGSolver(url=self.SOLVER_API_URL, cache_builder=self.polyhedron_builder_cache)
-            except SolverConnectionError as e:
-                raise Exception(status_code=500, detail=f"No solver cluster available: {e}")
+            self._solver_instance = PLDAGSolver(url=self.SOLVER_API_URL, cache_builder=self.polyhedron_builder_cache)
         return self._solver_instance
 
     @property

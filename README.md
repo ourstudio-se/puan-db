@@ -25,7 +25,11 @@ docker compose up --build
 This will download, build and run the necessary container services.
 
 ## Usage
-Puan DB serves two purposes:
+
+### Simple optimization problem solving
+Use `http://127.0.0.1:8000/api/v1/tools/search`
+
+Puan DB serves main two purposes:
 - Storing and providing combinatorial database models
 - Different kinds of calculations on these models
 

@@ -4,7 +4,6 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pldag_solver_sdk import Solver as PLDAGSolver, ConnectionError as SolverConnectionError
 
 from api.settings import EnvironmentVariables
 from api.routers.database_router import router as database_router
@@ -19,10 +18,10 @@ app = FastAPI()
 # Allow CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],  
 )
 
 if env.USERNAME and env.PASSWORD:
@@ -32,7 +31,6 @@ if env.USERNAME and env.PASSWORD:
         password=env.PASSWORD,
     )
 
-# Include the router with the dependency passed
 app.include_router(
     database_router, 
     prefix="/api/v1",
@@ -65,7 +63,7 @@ async def readiness_check():
     return {"status": "ready"}
 
 @app.exception_handler(ValueError)
-async def model_validation_exception_handler(request, exc: ValueError):
+async def model_validation_exception_handler(_, exc: ValueError):
     return JSONResponse(
         status_code=422,
         content={"errors": [e.get('msg') for e in exc.errors()]}

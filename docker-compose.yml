@@ -14,7 +14,7 @@ services:
 
   solver:
     container_name: solver
-    image: znittzel/puan-solver-orchestrator:latest
+    image: znittzel/puan-solver-orchestrator:0.1.2
     networks:
       - puanet
     environment:
@@ -27,12 +27,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: znittzel/puan-db:latest
+    image: znittzel/puan-db:0.1.1
     environment:
       DATABASE_URL: "redis://database:6379/0"
       SOLVER_API_URL: "http://solver:8000"
-    command: >
-      /bin/sh -c "poetry run uvicorn main:app --host 0.0.0.0 --port 8000"
     depends_on:
       db:
         condition: service_healthy
