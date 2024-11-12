@@ -18,6 +18,9 @@ pldag-solver-sdk = "^0.1.5"
 ipdb = "^0.13.9"
 debugpy = "^1.6.5"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
