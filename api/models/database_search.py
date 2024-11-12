@@ -30,7 +30,7 @@ class DatabaseSearchRequest(BaseModel):
     suchthat: Optional[DatabaseSearchSuchThat] = None
     direction: str = "maximize"
 
-    def objectives_dict(self, model: typed_model.Model) -> List[Dict[str, int]]:
+    def objectives_dict(self, model: typed_model.DatabaseModel) -> List[Dict[str, int]]:
         
         converted_objectives = []
         for objective in self.objectives:
@@ -90,8 +90,8 @@ class DatabaseSearchResponse(BaseModel):
     @staticmethod
     def from_untyped_solutions(
         solutions: List[untyped_model.SolutionResponse], 
-        model: typed_model.Model,
-        schema: schema_model.Schema,
+        model: typed_model.DatabaseModel,
+        schema: schema_model.DatabaseSchema,
         exclude_zero: bool = True
     ) -> "DatabaseSearchResponse":
         

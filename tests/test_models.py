@@ -28,7 +28,7 @@ def test_define_property():
 
 def test_define_schema():
     
-    schema_models.Schema(
+    schema_models.DatabaseSchema(
         properties={
             "a": schema_models.SchemaProperty(
                 dtype=schema_models.SchemaPropertyDType.float
@@ -47,7 +47,7 @@ def test_define_schema():
     )
 
     try:
-        schema_models.Schema(
+        schema_models.DatabaseSchema(
             primitives={
                 "x": schema_models.SchemaPrimitive(
                     dtype=schema_models.SchemaPrimitiveDtype.boolean,
@@ -65,7 +65,7 @@ def test_define_schema():
 
 def test_define_model():
 
-    schema = schema_models.Schema(
+    schema = schema_models.DatabaseSchema(
         primitives={
             "SX": schema_models.SchemaPrimitive(
                 dtype=schema_models.SchemaPrimitiveDtype.boolean
@@ -87,8 +87,8 @@ def test_define_model():
     )
     
     # Here propositions are defined before referenced
-    typed_models.Model(
-        model_schema=schema,
+    typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
@@ -109,7 +109,7 @@ def test_define_model():
         
 
 
-    schema = schema_models.Schema(
+    schema = schema_models.DatabaseSchema(
         primitives={
             "boolean": schema_models.SchemaPrimitive(
                 dtype=schema_models.SchemaPrimitiveDtype.boolean
@@ -137,8 +137,8 @@ def test_define_model():
         }
     )
 
-    model1 = typed_models.Model(
-        model_schema=schema,
+    model1 = typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
@@ -156,8 +156,8 @@ def test_define_model():
             }
         )
     )
-    model2 = typed_models.Model(
-        model_schema=schema,
+    model2 = typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
@@ -176,9 +176,9 @@ def test_define_model():
         )
     )
 
-    merged_model = model1.merge(model2)
-    assert merged_model == typed_models.Model(
-        model_schema=schema,
+    merged_model = model1.merge_data(model2.data)
+    assert merged_model == typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
@@ -198,7 +198,7 @@ def test_define_model():
     )
 
 def test_schema_validation():
-    schema = schema_models.Schema(
+    schema = schema_models.DatabaseSchema(
         properties={
             "price": schema_models.SchemaProperty(
                 dtype=schema_models.SchemaPropertyDType.integer,
@@ -254,8 +254,8 @@ def test_schema_validation():
         }
     )
 
-    model = typed_models.Model(
-        model_schema=schema,
+    model = typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
@@ -315,7 +315,7 @@ def test_define_composite_binary_relation_must_have_exactly_one_quantifiers():
             assert True
 
 def test_proposition_definition_order_in_model():
-    schema = schema_models.Schema(
+    schema = schema_models.DatabaseSchema(
         primitives={
             "SX": schema_models.SchemaPrimitive(
                 dtype=schema_models.SchemaPrimitiveDtype.boolean
@@ -337,8 +337,8 @@ def test_proposition_definition_order_in_model():
     )
     
     # Here propositions are defined before referenced
-    typed_models.Model(
-        model_schema=schema,
+    typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
@@ -360,8 +360,8 @@ def test_proposition_definition_order_in_model():
     # But this one should fail
     # since the id is not defined at all before it is referenced
     try:
-        typed_models.Model(
-            model_schema=schema,
+        typed_models.DatabaseModel(
+            database_schema=schema,
             data=typed_models.SchemaData(
                 primitives={
                     "x": typed_models.Primitive(
@@ -385,7 +385,7 @@ def test_proposition_definition_order_in_model():
 
 def test_schema_properties():
 
-    schema = schema_models.Schema(
+    schema = schema_models.DatabaseSchema(
         properties={
             "a": schema_models.SchemaProperty(
                 dtype=schema_models.SchemaPropertyDType.integer,
@@ -422,8 +422,8 @@ def test_schema_properties():
         }
     )
 
-    model = typed_models.Model(
-        model_schema=schema,
+    model = typed_models.DatabaseModel(
+        database_schema=schema,
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(

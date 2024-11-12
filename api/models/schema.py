@@ -128,7 +128,7 @@ class SchemaComposite(SchemaProposition):
                 raise ValueError(f"Aggregate key '{key}' will be resolved into a property, therefore it must not already be defined in properties. Remove/rename key '{key}' in properties or aggregates.")
         return value
 
-class Schema(BaseModel):
+class DatabaseSchema(BaseModel):
     primitives: Dict[str, SchemaPrimitive]
     properties: Dict[str, SchemaProperty] = {}
     composites: Dict[str, SchemaComposite] = {}
@@ -193,9 +193,9 @@ class Schema(BaseModel):
         return self
 
 ## Specific request models
-class DatabaseSchema(BaseModel):
+class Database(BaseModel):
     name: str
-    schema: Schema = Schema(primitives={}, properties={}, composites={})
+    database_schema: DatabaseSchema = DatabaseSchema(primitives={}, properties={}, composites={})
     description: Optional[str] = None
 
 class RequestOk(BaseModel):

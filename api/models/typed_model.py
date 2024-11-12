@@ -17,7 +17,7 @@ class Primitive(BaseModel):
     dtype: str
     properties: Properties = {}
 
-    def validate_properties(self, id: str, schema: schema_models.Schema):
+    def validate_properties(self, id: str, schema: schema_models.DatabaseSchema):
         type_map = {
             "integer": int,
             "float": float,
@@ -47,7 +47,7 @@ class Primitive(BaseModel):
                 if not isinstance(node_property, type_map[schema_property_base.dtype]):
                     raise ValueError(f"Property '{schema_property.dtype}' for {id} is not of type {schema_property_base.dtype.value}")
 
-    def validate_schema(self, id: str, model: Dict[str, "CompPrimitive"], schema: schema_models.Schema) -> Optional["SchemaPropositionError"]:
+    def validate_schema(self, id: str, model: Dict[str, "CompPrimitive"], schema: schema_models.DatabaseSchema) -> Optional["SchemaPropositionError"]:
         """Returns a list of validation errors"""
 
         # Check that the model has all the required propositions
@@ -140,18 +140,18 @@ class SchemaData(BaseModel):
     def exists(self, id: str) -> bool:
         return id in self.primitives or id in self.composites
 
-class Model(BaseModel):
+class DatabaseModel(BaseModel):
     
-    model_schema: schema_models.Schema
+    database_schema: schema_models.DatabaseSchema
     data: SchemaData
 
     @property
     def propositions(self) -> Dict[str, CompPrimitive]:
         return {**self.data.primitives, **self.data.composites}
 
-    def merge_data(self, other: SchemaData) -> "Model":
-        return Model(
-            model_schema=self.model_schema,
+    def merge_data(self, other: SchemaData) -> "DatabaseModel":
+        return DatabaseModel(
+            database_schema=self.database_schema,
             data=SchemaData(
                 primitives={**self.data.primitives, **other.primitives},
                 composites={**self.data.composites, **other.composites}
@@ -161,7 +161,7 @@ class Model(BaseModel):
     @model_validator(mode='after')
     def typecheck(self):
 
-        if self.model_schema is None:
+        if self.database_schema is None:
             raise ValueError("Model schema is not defined")
 
         # Create a dictionary of propositions for easy access
@@ -175,10 +175,10 @@ class Model(BaseModel):
         
         # Check each proposition against the schema
         for id, proposition in model_data.items():
-            proposition.validate_schema(id, model_data, self.model_schema)
+            proposition.validate_schema(id, model_data, self.database_schema)
 
         # Check the general schema
-        for schema_proposition_key, schema_proposition in {**self.model_schema.primitives, **self.model_schema.composites}.items():
+        for schema_proposition_key, schema_proposition in {**self.database_schema.primitives, **self.database_schema.composites}.items():
             count = sum(map(lambda x: x.dtype == schema_proposition_key, self.propositions.values()))
             if type(schema_proposition.quantifier) == int:
                 if count != schema_proposition.quantifier:
@@ -193,24 +193,24 @@ class Model(BaseModel):
 
         return self
     
-    def update(self, propositions: Dict[str, CompPrimitive]) -> "Model":
+    def update(self, propositions: Dict[str, CompPrimitive]) -> "DatabaseModel":
         """Updates propositions by id and returns a Model with the updated proposition"""
         new_primitives = {**self.data.primitives, **{p_id: p for p_id, p in propositions.items() if p.definition == Definition.primitive}}
         new_composites = {**self.data.composites, **{p_id: p for p_id, p in propositions.items() if p.definition == Definition.composite}}
-        return Model(
-            model_schema=self.model_schema,
+        return DatabaseModel(
+            database_schema=self.database_schema,
             data=SchemaData(
                 primitives=new_primitives,
                 composites=new_composites
             )
         )
     
-    def delete(self, ids: List[str]) -> "Model":
+    def delete(self, ids: List[str]) -> "DatabaseModel":
         """Deletes propositions by id and returns a new Model without the proposition"""
         new_primitives = {p_id: p for p_id, p in self.data.primitives.items() if p_id not in ids}
         new_composites = {p_id: p for p_id, p in self.data.composites.items() if p_id not in ids}
-        return Model(
-            model_schema=self.model_schema,
+        return DatabaseModel(
+            database_schema=self.database_schema,
             data=SchemaData(
                 primitives=new_primitives,
                 composites=new_composites
@@ -283,7 +283,7 @@ class Model(BaseModel):
 
         model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND)
         for primitive_id, primitive in self.data.primitives.items():
-            primitive_schema = self.model_schema.primitives.get(primitive.dtype)
+            primitive_schema = self.database_schema.primitives.get(primitive.dtype)
             if type(primitive_schema.dtype) == schema_models.SchemaPrimitiveDtype:
                 if primitive_schema.dtype == schema_models.SchemaPrimitiveDtype.integer:
                     model.set_primitive(primitive_id, complex(MIN_INT, MAX_INT))
@@ -307,7 +307,7 @@ class Model(BaseModel):
             )
 
         for composite_id, composite in self.data.composites.items():
-            composite_schema = self.model_schema.composites.get(composite.dtype)
+            composite_schema = self.database_schema.composites.get(composite.dtype)
 
             # Switch case for every schema relation operator
             if type(composite_schema.relation.operator) == schema_models.SchemaLogicOperator:

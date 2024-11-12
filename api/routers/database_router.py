@@ -28,7 +28,7 @@ async def get_databases(storage: SchemaStorage = Depends(get_schema_storage)):
     return storage.get_keys()
 
 @router.post("/databases", response_model=schema_models.RequestOk)
-async def create_database(schema_request: schema_models.DatabaseSchema, storage: SchemaStorage = Depends(get_schema_storage)):
+async def create_database(schema_request: schema_models.Database, storage: SchemaStorage = Depends(get_schema_storage)):
     
     if storage.exists(schema_request.name):
         raise HTTPException(status_code=409, detail="Database already exists")
@@ -55,30 +55,30 @@ async def delete_database(
 @router.patch("/databases/{database}", response_model=schema_models.RequestOk)
 async def update_database(
     database: str, 
-    schema: schema_models.Schema = Body(...), 
+    schema: schema_models.DatabaseSchema = Body(...), 
     schema_storage: SchemaStorage = Depends(get_schema_storage),
     model_storage: ModelStorage = Depends(get_model_storage),
 ):
 
-    current_database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+    current_database_schema: schema_models.Database = schema_storage.get(database)
     if current_database_schema is None:
         raise HTTPException(status_code=404, detail="Database not found")
     
-    current_model: typed_models.Model = model_storage.get(database)
+    current_model: typed_models.DatabaseModel = model_storage.get(database)
     if current_model is not None:
         # Validate data before updating schema
-        updated_model = typed_models.Model(
-            model_schema=schema,
+        updated_model = typed_models.DatabaseModel(
+            database_schema=schema,
             data=current_model.data,
         )
         # Set model with updated schema
         model_storage.set(database, updated_model)
     
-    current_database_schema.schema = schema
+    current_database_schema.database_schema = schema
     schema_storage.set(database, current_database_schema)
     return schema_models.RequestOk(message=f"Database updated")
     
-@router.get("/databases/{database}", response_model=typed_models.Model, description="Get schema and data from the database {database}")
+@router.get("/databases/{database}", response_model=typed_models.DatabaseModel, description="Get schema and data from the database {database}")
 async def get_database(database: str, schema_storage: SchemaStorage = Depends(get_schema_storage), model_storage: ModelStorage = Depends(get_model_storage)):
     
     if not schema_storage.exists(database):
@@ -92,14 +92,14 @@ async def get_database(database: str, schema_storage: SchemaStorage = Depends(ge
     # Get data
     return data
 
-@router.get("/databases/{database}/schema", response_model=schema_models.DatabaseSchema)
+@router.get("/databases/{database}/schema", response_model=schema_models.Database)
 async def get_database(database: str, storage: SchemaStorage = Depends(get_schema_storage)):
-    schema: schema_models.DatabaseSchema = storage.get(database)
+    schema: schema_models.Database = storage.get(database)
     if schema is None:
         raise HTTPException(status_code=404, detail="Database not found")
     return schema
 
-@router.get("/databases/{database}/data", response_model=typed_models.Model)
+@router.get("/databases/{database}/data", response_model=typed_models.DatabaseModel)
 async def get_data(database: str, model_storage: ModelStorage = Depends(get_model_storage)):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database data not found")
@@ -122,10 +122,10 @@ async def insert(
         raise HTTPException(status_code=404, detail="Database not found")
     
     # We need to fetch schema to validate data
-    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+    database_schema: schema_models.Database = schema_storage.get(database)
 
     # Need to fetch current data to merge with new data
-    current_model: typed_models.Model = model_storage.get(database)
+    current_model: typed_models.DatabaseModel = model_storage.get(database)
     if current_model is not None:
         # Merge data with existing data
         # Will raise an exception if data is invalid
@@ -133,8 +133,8 @@ async def insert(
     else:
         # Attach data and schema into a new model
         # Will raise an exception if data is invalid
-        model = typed_models.Model(
-            model_schema=database_schema.schema, 
+        model = typed_models.DatabaseModel(
+            database_schema=database_schema.database_schema, 
             data=data,
         )
 
@@ -157,12 +157,12 @@ async def overwrite(
         raise HTTPException(status_code=404, detail="Database not found")
     
     # Validate each data element against the schema
-    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+    database_schema: schema_models.Database = schema_storage.get(database)
 
     # Create model from data
     # Will raise an exception if data is invalid
-    model = typed_models.Model(
-        model_schema=database_schema.schema, 
+    model = typed_models.DatabaseModel(
+        database_schema=database_schema.database_schema, 
         data=data,
     )
 
@@ -184,12 +184,12 @@ async def validate(
         raise HTTPException(status_code=404, detail="Database not found")
     
     # Validate each data element against the schema
-    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+    database_schema: schema_models.Database = schema_storage.get(database)
 
     # Test to construct a Model from data and schema
     # Will raise an exception if data is invalid
-    typed_models.Model(
-        model_schema=database_schema.schema, 
+    typed_models.DatabaseModel(
+        database_schema=database_schema.database_schema, 
         data=data,
     )
 
@@ -209,7 +209,7 @@ async def get_data_item(
         raise HTTPException(status_code=404, detail="Database has no data")
     
     # Get data from database
-    model: typed_models.Model = model_storage.get(database)
+    model: typed_models.DatabaseModel = model_storage.get(database)
     
     # Get item, None if not found
     item = model.data.get(id)
@@ -234,7 +234,7 @@ async def update_data_item(
         raise HTTPException(status_code=404, detail="Database has no data")
     
     # Get data from database
-    model: typed_models.Model = model_storage.get(database)
+    model: typed_models.DatabaseModel = model_storage.get(database)
     
     # Try to find item
     item = model.data.get(id)
@@ -243,7 +243,7 @@ async def update_data_item(
     
     # Update data
     # Will raise an exception if data is invalid
-    updated_model: typed_models.Model = model.update({id: proposition})
+    updated_model: typed_models.DatabaseModel = model.update({id: proposition})
     
     # No errors, save data
     model_storage.set(database, updated_model)
@@ -262,7 +262,7 @@ async def delete_data_item(
 ):
     
     # Get data from database
-    model: typed_models.Model = model_storage.get(database)
+    model: typed_models.DatabaseModel = model_storage.get(database)
     
     # Check if data exists
     if not model.data.exists(id):
@@ -289,7 +289,7 @@ async def search_data_items(
         raise HTTPException(status_code=404, detail="Database has no data")
     
     # Get data from database
-    model: typed_models.Model = model_storage.get(database)
+    model: typed_models.DatabaseModel = model_storage.get(database)
     
     # Search data
     if query is None:
@@ -311,13 +311,13 @@ async def search(
     if not schema_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
 
-    database_schema: schema_models.DatabaseSchema = schema_storage.get(database)
+    database_schema: schema_models.Database = schema_storage.get(database)
 
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database has no data")
     
     # Get data from database
-    model: typed_models.Model = model_storage.get(database)
+    model: typed_models.DatabaseModel = model_storage.get(database)
 
     # Append input data propositions to the model
     if suchthat := query.suchthat:
@@ -365,5 +365,5 @@ async def search(
             ) for solution in solutions
         ],
         model=model,
-        schema=database_schema.schema
+        schema=database_schema.database_schema
     )
