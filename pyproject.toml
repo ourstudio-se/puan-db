@@ -13,7 +13,7 @@ pldag = "^0.10.0"
 redis = "^5.1.1"
 uvicorn = "^0.32.0"
 pydantic-settings = "^2.5.2"
-pldag-solver-sdk = "^0.1.5"
+pldag-solver-sdk = "^0.1.6"
 
 [tool.poetry.dev-dependencies]
 ipdb = "^0.13.9"

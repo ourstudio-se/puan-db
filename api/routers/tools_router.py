@@ -13,8 +13,19 @@ env = EnvironmentVariables()
 logger = logging.getLogger(__name__)
 
 @router.post("/tools/search", response_model=schema_models.SolverProblemResponse)
-def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: bool = Query(False, alias="onlyPrimitives")):
+async def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: bool = Query(False, alias="onlyPrimitives")):
     try:
+
+        solver_health = await env.solver.health()
+        if not solver_health:
+            raise HTTPException(status_code=503, detail=f"Solver service not ready at {env.solver.url}.")
+
+        if len(model_problem.model) == 0:
+            raise HTTPException(status_code=400, detail="Model is empty.")
+        
+        if len(model_problem.problem.objectives) == 0:
+            raise HTTPException(status_code=400, detail="No objectives to solve.")
+
         model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND)
         for proposition in model_problem.model:
             proposition.set_model(model)
@@ -27,7 +38,7 @@ def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: bool =
         assume = {assume_id: model_problem.problem.assume.bounds.to_complex()} if assume_id else {}
 
         try:
-            solutions = env.solver.solve(
+            solutions = await env.solver.solve(
                 model=model,
                 assume=assume,
                 objectives=model_problem.problem.objectives,

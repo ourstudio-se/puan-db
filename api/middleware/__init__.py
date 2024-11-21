@@ -1,5 +1,6 @@
 import base64
-from fastapi import FastAPI, Request
+import traceback
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -41,3 +42,26 @@ class SimpleAuthMiddleware(BaseHTTPMiddleware):
         # If validation passes, continue to the next middleware or route
         response = await call_next(request)
         return response
+    
+class ValueErrorMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        except ValueError as e:
+            return JSONResponse(
+                status_code=400, 
+                content={
+                    "type": "SCHEMA_VALIDATION_ERROR",
+                    "message": str(e)
+                }
+            )
+        except Exception as e:
+            traceback.print_exc()
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "type": "UNKNOWN_ERROR",
+                    "message": "Internal Server Error"
+                }
+            )

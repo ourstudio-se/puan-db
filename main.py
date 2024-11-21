@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.settings import EnvironmentVariables
 from api.routers.database_router import router as database_router
 from api.routers.tools_router import router as tools_router
-from api.middleware import SimpleAuthMiddleware
+from api.middleware import SimpleAuthMiddleware, ValueErrorMiddleware
 
 env = EnvironmentVariables()
 logger = logging.getLogger(__name__)
@@ -31,15 +31,9 @@ if env.USERNAME and env.PASSWORD:
         password=env.PASSWORD,
     )
 
-app.include_router(
-    database_router, 
-    prefix="/api/v1",
-)
-
-app.include_router(
-    tools_router, 
-    prefix="/api/v1",
-)
+app.add_middleware(ValueErrorMiddleware)
+app.include_router(database_router, prefix="/api/v1")
+app.include_router(tools_router, prefix="/api/v1")
 
 @app.get("/health", tags=["Monitoring"])
 async def health_check():
@@ -61,13 +55,6 @@ async def readiness_check():
         raise HTTPException(status_code=503, detail=f"Service not ready: {str(e)}")
 
     return {"status": "ready"}
-
-@app.exception_handler(ValueError)
-async def model_validation_exception_handler(_, exc: ValueError):
-    return JSONResponse(
-        status_code=422,
-        content={"errors": [e.get('msg') for e in exc.errors()]}
-    )
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=env.PORT)

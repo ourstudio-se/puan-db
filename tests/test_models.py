@@ -36,10 +36,10 @@ def test_define_schema():
         },
         primitives={
             "x": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean,
+                ptype=schema_models.SchemaPrimitiveDtype.boolean,
                 properties=[
                     schema_models.SchemaPropertyReference(
-                        dtype="a"
+                        property="a"
                     )
                 ]
             )
@@ -50,10 +50,10 @@ def test_define_schema():
         schema_models.DatabaseSchema(
             primitives={
                 "x": schema_models.SchemaPrimitive(
-                    dtype=schema_models.SchemaPrimitiveDtype.boolean,
+                    ptype=schema_models.SchemaPrimitiveDtype.boolean,
                     properties=[
                         schema_models.SchemaPropertyReference(
-                            dtype="string"
+                            property="string"
                         )
                     ]
                 )
@@ -68,16 +68,16 @@ def test_define_model():
     schema = schema_models.DatabaseSchema(
         primitives={
             "SX": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean
+                ptype=schema_models.SchemaPrimitiveDtype.boolean
             ),
         },
         composites={
             "SA": schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=schema_models.SchemaLogicOperator.and_,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="SX",
+                            variable="SX",
                             quantifier=schema_models.SchemaQuantifier.one_or_more
                         )
                     ]
@@ -92,16 +92,16 @@ def test_define_model():
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
-                    dtype="SX"
+                    ptype="SX"
                 ),
                 "y": typed_models.Primitive(
-                    dtype="SX"
+                    ptype="SX"
                 ),
             },
             composites={
                 "A": typed_models.Composite(
-                    dtype="SA",
-                    arguments=["x", "y"]
+                    ptype="SA",
+                    inputs=["x", "y"]
                 )
             }
         )
@@ -112,23 +112,23 @@ def test_define_model():
     schema = schema_models.DatabaseSchema(
         primitives={
             "boolean": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean
+                ptype=schema_models.SchemaPrimitiveDtype.boolean
             ),
             "integer": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean
+                ptype=schema_models.SchemaPrimitiveDtype.boolean
             ),
         },
         composites={
             "and": schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=schema_models.SchemaLogicOperator.and_,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="boolean",
+                            variable="boolean",
                             quantifier=schema_models.SchemaQuantifier.zero_or_more
                         ),
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="integer",
+                            variable="integer",
                             quantifier=schema_models.SchemaQuantifier.zero_or_more
                         ),
                     ]
@@ -142,16 +142,16 @@ def test_define_model():
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
-                    dtype="integer"
+                    ptype="integer"
                 ),
                 "y": typed_models.Primitive(
-                    dtype="boolean"
+                    ptype="boolean"
                 ),
             },
             composites={
                 "A": typed_models.Composite(
-                    dtype="and",
-                    arguments=["x", "y"]
+                    ptype="and",
+                    inputs=["x", "y"]
                 )
             }
         )
@@ -161,16 +161,16 @@ def test_define_model():
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
-                    dtype="boolean"
+                    ptype="boolean"
                 ),
                 "y": typed_models.Primitive(
-                    dtype="boolean"
+                    ptype="boolean"
                 ),
             },
             composites={
                 "A": typed_models.Composite(
-                    dtype="and",
-                    arguments=["x", "y"]
+                    ptype="and",
+                    inputs=["x", "y"]
                 )
             }
         )
@@ -182,16 +182,16 @@ def test_define_model():
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
-                    dtype="boolean"
+                    ptype="boolean"
                 ),
                 "y": typed_models.Primitive(
-                    dtype="boolean"
+                    ptype="boolean"
                 ),
             },
             composites={
                 "A": typed_models.Composite(
-                    dtype="and",
-                    arguments=["x", "y"]
+                    ptype="and",
+                    inputs=["x", "y"]
                 )
             }
         )
@@ -207,14 +207,14 @@ def test_schema_validation():
         },
         primitives={
             "week": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaRangeType(lower=2400, upper=2600),
+                ptype=schema_models.SchemaRangeType(lower=2400, upper=2600),
                 quantifier=2,
             ),
             "option": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean,
+                ptype=schema_models.SchemaPrimitiveDtype.boolean,
                 properties=[
                     schema_models.SchemaPropertyReference(
-                        dtype="price"
+                        property="price"
                     )
                 ]
             )
@@ -223,13 +223,13 @@ def test_schema_validation():
             "weekSpan": schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=schema_models.SchemaLogicOperator.geq,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="week",
+                            variable="week",
                             quantifier=1
                         ),
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="week",
+                            variable="week",
                             quantifier=1
                         )
                     ]
@@ -238,13 +238,13 @@ def test_schema_validation():
             "auth": schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=schema_models.SchemaLogicOperator.imply,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="weekSpan",
+                            variable="weekSpan",
                             quantifier=1
                         ),
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="option",
+                            variable="option",
                             quantifier=1
                         )
                     ]
@@ -260,13 +260,13 @@ def test_schema_validation():
             primitives={
                 "x": typed_models.Primitive(
                     id="x",
-                    dtype="week"
+                    ptype="week"
                 ),
                 "y": typed_models.Primitive(
-                    dtype="week"
+                    ptype="week"
                 ),
                 "z": typed_models.Primitive(
-                    dtype="option",
+                    ptype="option",
                     properties={
                         "price": 100
                     }
@@ -274,12 +274,12 @@ def test_schema_validation():
             },
             composites={
                 "ws1": typed_models.Composite(
-                    dtype="weekSpan",
-                    arguments=["x", "y"]
+                    ptype="weekSpan",
+                    inputs=["x", "y"]
                 ),
                 "authOptZ": typed_models.Composite(
-                    dtype="auth",
-                    arguments=["ws1", "z"]
+                    ptype="auth",
+                    inputs=["ws1", "z"]
                 )
             }
         )
@@ -297,14 +297,14 @@ def test_define_composite_binary_relation_must_have_exactly_one_quantifiers():
             schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=operator,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="week",
+                            variable="week",
                             quantifier=1
                         ),
                         # Should fail because it has more than 2 items
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="week",
+                            variable="week",
                             quantifier=2
                         )
                     ]
@@ -318,16 +318,16 @@ def test_proposition_definition_order_in_model():
     schema = schema_models.DatabaseSchema(
         primitives={
             "SX": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean
+                ptype=schema_models.SchemaPrimitiveDtype.boolean
             ),
         },
         composites={
             "SA": schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=schema_models.SchemaLogicOperator.and_,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="SX",
+                            variable="SX",
                             quantifier=schema_models.SchemaQuantifier.one_or_more
                         )
                     ]
@@ -342,16 +342,16 @@ def test_proposition_definition_order_in_model():
         data=typed_models.SchemaData(
             primitives={
                 "x": typed_models.Primitive(
-                    dtype="SX"
+                    ptype="SX"
                 ),
                 "y": typed_models.Primitive(
-                    dtype="SX"
+                    ptype="SX"
                 ),
             },
             composites={
                 "A": typed_models.Composite(
-                    dtype="SA",
-                    arguments=["x", "y"]
+                    ptype="SA",
+                    inputs=["x", "y"]
                 )
             }
         )
@@ -365,16 +365,16 @@ def test_proposition_definition_order_in_model():
             data=typed_models.SchemaData(
                 primitives={
                     "x": typed_models.Primitive(
-                        dtype="SX"
+                        ptype="SX"
                     ),
                     "y": typed_models.Primitive(
-                        dtype="SX"
+                        ptype="SX"
                     ),
                 },
                 composites={
                     "A": typed_models.Composite(
-                        dtype="SA",
-                        arguments=["x", "y", "z"]
+                        ptype="SA",
+                        inputs=["x", "y", "z"]
                     )
                 }
             )
@@ -394,10 +394,10 @@ def test_schema_properties():
         },
         primitives={
             "x": schema_models.SchemaPrimitive(
-                dtype=schema_models.SchemaPrimitiveDtype.boolean,
+                ptype=schema_models.SchemaPrimitiveDtype.boolean,
                 properties=[
                     schema_models.SchemaPropertyReference(
-                        dtype="a"
+                        property="a"
                     )
                 ]
             )
@@ -406,16 +406,16 @@ def test_schema_properties():
             "A": schema_models.SchemaComposite(
                 relation=schema_models.SchemaLogicRelation(
                     operator=schema_models.SchemaLogicOperator.and_,
-                    items=[
+                    inputs=[
                         schema_models.SchemaQuantifiedVariable(
-                            dtype="x",
+                            variable="x",
                             quantifier=schema_models.SchemaQuantifier.one_or_more
                         )
                     ]
                 ),
                 properties=[
                     schema_models.SchemaPropertyReference(
-                        dtype="a"
+                        property="a"
                     )
                 ]
             )
@@ -428,7 +428,7 @@ def test_schema_properties():
             primitives={
                 "x": typed_models.Primitive(
                     id="x",
-                    dtype="x",
+                    ptype="x",
                     properties={
                         "a": 100
                     }
@@ -436,8 +436,8 @@ def test_schema_properties():
             },
             composites={
                 "myA": typed_models.Composite(
-                    dtype="A",
-                    arguments=["x"],
+                    ptype="A",
+                    inputs=["x"],
                     properties={
                         "a": 110
                     }
