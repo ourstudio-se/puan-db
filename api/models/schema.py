@@ -1,6 +1,7 @@
 from pydantic import BaseModel, field_validator, model_validator
 from typing import List, Optional, Dict, Union
 from enum import Enum
+from graphlib import TopologicalSorter, CycleError
 
 class SchemaRangeType(BaseModel):
     lower: int
@@ -22,7 +23,7 @@ class SchemaQuantifier(Enum):
     one_or_more = "+"
 
 class SchemaQuantifiedVariable(BaseModel):
-    dtype: str
+    variable: str
     quantifier: Union[int, SchemaQuantifier]
 
     @field_validator("quantifier")
@@ -53,20 +54,20 @@ class SchemaValuedOperator(str, Enum):
 
 class SchemaLogicRelation(BaseModel):
     operator: SchemaLogicOperator
-    items: List[SchemaQuantifiedVariable]
+    inputs: List[SchemaQuantifiedVariable]
 
-    @field_validator("items")
+    @field_validator("inputs")
     def check_items(cls, value, values):
         operator = values.data.get('operator')
         binary_operators = {SchemaLogicOperator.imply, SchemaLogicOperator.equiv, SchemaLogicOperator.geq, SchemaLogicOperator.leq}
         if operator in binary_operators:
             if len(value) != 2:
-                raise ValueError(f"Binary relation must have exactly 2 items when operator is any of {binary_operators}")
+                raise ValueError(f"Binary relation must have exactly 2 inputs when operator is any of {binary_operators}")
         return value
 
 class SchemaValuedRelation(BaseModel):
     operator: SchemaValuedOperator
-    items: List[SchemaQuantifiedVariable]
+    inputs: List[SchemaQuantifiedVariable]
     value: int
 
 class SchemaProperty(BaseModel):
@@ -74,7 +75,7 @@ class SchemaProperty(BaseModel):
     description: Optional[str] = None
 
 class SchemaPropertyReference(BaseModel):
-    dtype: str
+    property: str
     default: Optional[Union[int, float, bool, str]] = None
 
 class SchemaProposition(BaseModel):
@@ -83,9 +84,9 @@ class SchemaProposition(BaseModel):
     description: Optional[str] = None
 
 class SchemaPrimitive(SchemaProposition):
-    dtype: Union[SchemaRangeType, SchemaPrimitiveDtype, str]
+    ptype: Union[SchemaRangeType, SchemaPrimitiveDtype, str]
 
-    @field_validator("dtype")
+    @field_validator("ptype")
     def validate_dtype(cls, value):
         # Check if value matches a SchemaPrimitiveDtype value
         if value in SchemaPrimitiveDtype.__members__.values():
@@ -113,9 +114,9 @@ class SchemaComposite(SchemaProposition):
         operator = value.operator
         binary_operators = {SchemaLogicOperator.imply, SchemaLogicOperator.equiv, SchemaLogicOperator.geq, SchemaLogicOperator.leq}
         if operator in binary_operators:
-            if len(value.items) != 2:
+            if len(value.inputs) != 2:
                 raise ValueError(f"Binary relation must have exactly 2 items when operator is any of {binary_operators}")
-            for item in value.items:
+            for item in value.inputs:
                 if not type(item.quantifier) == int or item.quantifier != 1:
                     raise ValueError(f"Binary relation ({binary_operators}) must have <exactly one> quantifier set for each item")
         return value
@@ -124,7 +125,7 @@ class SchemaComposite(SchemaProposition):
     def validate_aggregates(cls, value, values):
         """Aggregate key must not be in properties"""
         for key in value:
-            if key in map(lambda property: property.dtype, values.data.get('properties', {})):
+            if key in map(lambda property: property.property, values.data.get('properties', {})):
                 raise ValueError(f"Aggregate key '{key}' will be resolved into a property, therefore it must not already be defined in properties. Remove/rename key '{key}' in properties or aggregates.")
         return value
 
@@ -135,49 +136,59 @@ class DatabaseSchema(BaseModel):
 
     @model_validator(mode='after')
     def typecheck(self):
+
+        # Check that there's no circular dependencies from composite relations
+        try:
+            graph = TopologicalSorter(
+                dict(
+                    (key, [item.variable for item in comp.relation.inputs])
+                    for key, comp in self.composites.items()
+                )
+            )
+            graph.prepare()
+        except CycleError as e:
+            raise ValueError(f"Circular dependency detected in schema: '{e.args[1]}'")
         
         # Check that all types are defined before use
         # Definitions are done in the order of
         # 1. Properties (no dependencies)
         # 2. Primitives (depends on properties or other primitives (or basic types))
         # 3. Composites (depends on properties, primitives or other composites)
-        defined_types = set()
-        for prop_key in self.properties:
-            defined_types.add(prop_key)
+        for property_key, property in self.properties.items():
+            if property.dtype not in SchemaPropertyDType.__members__:
+                raise ValueError(f"Undefined property type '{property.dtype}' used in property '{property_key}'. Must be one of {', '.join(SchemaPropertyDType.__members__)}")
 
         for prim_key, prim in self.primitives.items():
             for property in prim.properties:
-                if property.dtype not in defined_types:
-                    raise ValueError(f"Undefined property type '{property.dtype}' used in primitive '{prim_key}'")
-            if type(prim.dtype) == str:
-                if prim.dtype not in defined_types:
-                    raise ValueError(f"Undefined proposition type '{prim.dtype}' used in primitive '{prim_key}'")
-            elif type(prim.dtype) == SchemaRangeType:
-                if prim.dtype.lower > prim.dtype.upper:
+                if property.property not in self.properties:
+                    raise ValueError(f"Undefined property '{property.property}' used in primitive '{prim_key}'")
+            if type(prim.ptype) == str:
+                if prim.ptype not in SchemaPrimitiveDtype.__members__:
+                    raise ValueError(f"Undefined primitive variable type '{prim.ptype}' used in primitive '{prim_key}'. Must be one of {', '.join(SchemaPrimitiveDtype.__members__)}")
+            elif type(prim.ptype) == SchemaRangeType:
+                if prim.ptype.lower > prim.ptype.upper:
                     raise ValueError(f"Invalid range for primitive '{prim_key}'")
-            defined_types.add(prim_key)
 
         for comp_key, comp in self.composites.items():
             for property in comp.properties:
-                if property.dtype not in defined_types:
-                    raise ValueError(f"Undefined property type '{property.dtype}' used in primitive '{prim_key}'")
-            for item in comp.relation.items:
-                if item.dtype not in defined_types:
-                    raise ValueError(f"Undefined proposition type '{item.dtype}' used in composite '{comp_key}'")
-                defined_types.add(comp_key)
+                if property.property not in self.properties:
+                    raise ValueError(f"Undefined property '{property.property}' used in composite '{comp_key}'")
+            for item in comp.relation.inputs:
+                if item.variable not in self.primitives and item.variable not in self.composites:
+                    raise ValueError(f"Undefined input variable '{item.variable}' used in composite '{comp_key}'")
 
         # Validate aggregates:
         # All relation's types must have the same dtype as the source of the aggregate
         for composite_key, composite in self.composites.items():
             missing_items = []
             for aggregate_key, aggregate in composite.aggregates.items():
-                for item in composite.relation.items:
-                    schema_item = self.composites.get(item.dtype, self.primitives.get(item.dtype))
-                    if not any(map(lambda property: property.dtype == aggregate.source, schema_item.properties)):
-                        missing_items.append(item.dtype)
+                for item in composite.relation.inputs:
+                    schema_item = self.composites.get(item.variable, self.primitives.get(item.variable))
+                    if not any(map(lambda property: property.property == aggregate.source, schema_item.properties)):
+                        missing_items.append(item.variable)
 
                 # It also includes having the property defined in the properties
-                if not aggregate.source in map(lambda x: x.dtype, composite.properties):
+                if not aggregate.source in map(lambda x: x.property, composite.properties):
                     missing_items.append(composite_key)
             
             if missing_items:
@@ -187,16 +198,14 @@ class DatabaseSchema(BaseModel):
         for pkey, prim in self.primitives.items():
             for prop in prim.properties:
                 if prop.default is not None:
-                    if type(prop.default).__name__ != self.properties[prop.dtype].dtype:
-                        raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.dtype].dtype.value}, got {type(prop.default).__name__}")
+                    if type(prop.default).__name__ != self.properties[prop.property].dtype:
+                        raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.property].dtype.value}, got {type(prop.default).__name__}")
         
         return self
 
 ## Specific request models
 class Database(BaseModel):
-    name: str
-    database_schema: DatabaseSchema = DatabaseSchema(primitives={}, properties={}, composites={})
-    description: Optional[str] = None
+    id: str
 
 class RequestOk(BaseModel):
     message: str

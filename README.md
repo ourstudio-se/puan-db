@@ -40,12 +40,39 @@ Puan DB provides a static type based schema for a database. This provides rubust
 
 #### End points
 - `GET /databases`: "Getting all databases"
-- `GET /databases/{name}/schema`: "Get the schema for database {name}"
-- `GET /databases/{name}/data`: "Get the data for database {name}"
 - `POST /databases`: "Create a new database by given database name and schema in the body"
 - `DELETE /databases/{name}`: "Delete database {name}"
 - `PATCH /databases/{name}`: "Updates/replaces database schema with the one given"
 - `GET /databases/{name}`: "Get the schema and data for database {name}"
+- `GET /databases/{name}/schema`: "Get the schema for database {name}"
+- `PATCH /databases/{name}/schema`: "Create or replace (bulk update) schema for database {name}"
+- `GET /databases/{name}/schema/properties`: "Get the schema primitives for database {name}"
+- `GET /databases/{name}/schema/primitives`: "Get the schema primitives for database {name}"
+- `GET /databases/{name}/schema/composites`: "Get the schema primitives for database {name}"
+- `GET /databases/{name}/schema/properties/{id}`: "Get the schema property {id} for database {name}"
+- `GET /databases/{name}/schema/primitives/{id}`: "Get the schema primitive {id} for database {name}"
+- `GET /databases/{name}/schema/composites/{id}`: "Get the schema composite {id} for database {name}"
+- `PATCH /databases/{name}/schema/properties/{id}`: "Create or replace a schema property {id} for database {name}"
+- `PATCH /databases/{name}/schema/primitives/{id}`: "Create or replace a schema primitive {id} for database {name}"
+- `PATCH /databases/{name}/schema/composites/{id}`: "Create or replace a schema composite {id} for database {name}"
+- `DELETE /databases/{name}/schema/properties/{id}`: "Delete a schema property {id} for database {name}"
+- `DELETE /databases/{name}/schema/primitives/{id}`: "Create or replace a schema primitive {id} for database {name}"
+- `DELETE /databases/{name}/schema/composites/{id}`: "Create or replace a schema composite {id} for database {name}"
+
+
+- `GET /databases/{name}/data`: "Get the data for database {name}"
+- `GET /databases/{name}/data/primitives`: "Get primitive's data for database {name}"
+- `GET /databases/{name}/data/composites`: "Get composite's data for database {name}"
+- `PATCH /databases/{name}/data`: "Create or replace (bulk update) data for database {name}"
+- `PATCH /databases/{name}/data/primitives/{id}`: "Create or replace a primitive {id} for database {name}"
+- `PATCH /databases/{name}/data/composites/{id}`: "Create or replace a composite {id} for database {name}"
+- `DELETE /databases/{name}/data`: "Create or replace (bulk update) data for database {name}"
+- `DELETE /databases/{name}/data/primitives/{id}`: "Create or replace a primitive {id} for database {name}"
+- `DELETE /databases/{name}/data/composites/{id}`: "Create or replace a composite {id} for database {name}"
+
+
+
+// Old
 - `POST /databases/{name}/data/insert`: "Insert/append new data to database {name}. Data-schema validation is done before operation"
 - `POST /databases/{name}/data/overwrite`: "Overwrite data with given. Data-schema validation is done before operation"
 - `POST /databases/{name}/data/validate`: "Runs data-schema validation"

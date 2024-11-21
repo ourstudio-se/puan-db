@@ -53,11 +53,11 @@ class DatabaseSearchRequest(BaseModel):
         return converted_objectives
     
 class DatabaseSearchPrimitiveSolutionVariable(BaseModel):
-    proposition: typed_model.Primitive
+    variable: typed_model.Primitive
     value: int
     
 class DatabaseSearchCompositeSolutionVariable(BaseModel):
-    proposition: typed_model.Composite
+    variable: typed_model.Composite
     value: int
     
 class DatabaseSearchSolution(BaseModel): 
@@ -114,7 +114,7 @@ class DatabaseSearchResponse(BaseModel):
                         model_primitives
                     ),
                     starmap(
-                        lambda k, v: (k, set(v.arguments)),
+                        lambda k, v: (k, set(v.inputs)),
                         model_composites.items()
                     )
                 )
@@ -145,7 +145,7 @@ class DatabaseSearchResponse(BaseModel):
                         raise ValueError(f"Primitive '{sol_key}' not found in model")
                     
                     new_solution[sol_key] = DatabaseSearchPrimitiveSolutionVariable(
-                        proposition=model_primitive,
+                        variable=model_primitive,
                         value=sol_val
                     )
 
@@ -154,7 +154,7 @@ class DatabaseSearchResponse(BaseModel):
                     if composite_model is None:
                         raise ValueError(f"Composite '{sol_key}' not found in model")
                     
-                    composite_schema = schema.composites.get(composite_model.dtype)
+                    composite_schema = schema.composites.get(composite_model.ptype)
                     if composite_schema is None:
                         raise ValueError(f"Composite '{sol_key}' not found in schema")
                     
@@ -190,7 +190,7 @@ class DatabaseSearchResponse(BaseModel):
                     
                     composite_model.properties.update(new_aggregate_properties)
                     new_solution[sol_key] = DatabaseSearchCompositeSolutionVariable(
-                        proposition=composite_model,
+                        variable=composite_model,
                         value=sol_val,
                     )
 

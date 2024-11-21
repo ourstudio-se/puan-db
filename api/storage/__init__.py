@@ -28,6 +28,14 @@ class RedisStorage:
             return None
         return pickle.loads(data)
     
+    def load_pickles(self, keys: List[str]):
+        datas = self.client.mget(keys)
+        return [
+            pickle.loads(data)
+            for data in datas
+            if data is not None
+        ]
+    
 # Define a type variable that must be a subclass of BaseModel
 T = TypeVar("T", bound=BaseModel)
 
@@ -42,11 +50,7 @@ class NaiveStorage(Generic[T], RedisStorage):
         if data is None:
             return None
         
-        try:
-            return self.model_class.model_validate(data)
-        except Exception as e:
-            logger.error(f"Failed to validate data for {id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to load data for '{id}': data is corrupt. If possible, try to delete and then recreate.")
+        return data
     
     def get_keys(self) -> List[str]:
         return list(
@@ -55,6 +59,9 @@ class NaiveStorage(Generic[T], RedisStorage):
                 self.client.keys(f"{self.__mname__}:*")
             )
         )
+    
+    def get_all(self) -> Dict[str, T]:
+        return self.load_pickles(self.client.keys(f"{self.__mname__}:*"))
     
     def set(self, id: str, obj: T):
         # We can now safely call model_dump, knowing T is a BaseModel
