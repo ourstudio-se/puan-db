@@ -360,7 +360,7 @@ def test_proposition_definition_order_in_model():
     # But this one should fail
     # since the id is not defined at all before it is referenced
     try:
-        typed_models.DatabaseModel(
+        db_model = typed_models.DatabaseModel(
             database_schema=schema,
             data=typed_models.SchemaData(
                 primitives={
@@ -379,6 +379,7 @@ def test_proposition_definition_order_in_model():
                 }
             )
         )
+        db_model.validate_all()
         assert False
     except ValueError:
         assert True
