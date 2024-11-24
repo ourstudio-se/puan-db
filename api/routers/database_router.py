@@ -17,25 +17,19 @@ router = APIRouter()
 env = EnvironmentVariables()
 logger = logging.getLogger(__name__)
 
-def get_database_storage():
-    yield DatabaseStorage(env.DATABASE_URL)
-
-def get_model_storage():
-    yield ModelStorage(env.DATABASE_URL)
-
 ################################################################################################
 # --------------------------------- DATABASE OPERATIONS [BEGIN] ---------------------------------#
 ################################################################################################
 
 @router.get("/databases", response_model=List[schema_models.Database])
-async def get_databases(storage: DatabaseStorage = Depends(get_database_storage)):
+async def get_databases(storage: DatabaseStorage = Depends(env.get_database_storage)):
     return storage.get_all()
 
 @router.post("/databases", response_model=schema_models.Database)
 async def create_database(
     schema_request: schema_models.Database, 
-    database_storage: DatabaseStorage = Depends(get_database_storage),
-    model_storage: ModelStorage = Depends(get_model_storage),
+    database_storage: DatabaseStorage = Depends(env.get_database_storage),
+    model_storage: ModelStorage = Depends(env.get_model_storage),
 ):
     
     if database_storage.exists(schema_request.id):
@@ -54,8 +48,8 @@ async def create_database(
 @router.delete("/databases/{database}", response_model=schema_models.RequestOk)
 async def delete_database(
     database: str, 
-    database_storage: DatabaseStorage = Depends(get_database_storage),
-    model_storage: ModelStorage = Depends(get_model_storage)
+    database_storage: DatabaseStorage = Depends(env.get_database_storage),
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     try:
         model_storage.delete(database)
@@ -67,7 +61,7 @@ async def delete_database(
 @router.get("/databases/{database}", response_model=typed_models.DatabaseModel, description="Get schema and data from the database {database}")
 async def get_database(
     database: str, 
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     
     if not model_storage.exists(database):
@@ -90,7 +84,7 @@ async def get_database(
 # ################################################################################################
 
 @router.get("/databases/{database}/schema", response_model=schema_models.DatabaseSchema)
-async def get_database_schema(database: str, model_storage: ModelStorage = Depends(get_model_storage)):
+async def get_database_schema(database: str, model_storage: ModelStorage = Depends(env.get_model_storage)):
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     if database_model is None:
         raise HTTPException(status_code=404, detail="Database not found")
@@ -100,7 +94,7 @@ async def get_database_schema(database: str, model_storage: ModelStorage = Depen
 async def update_database_schema(
     database: str,
     schema: schema_models.DatabaseSchema,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -113,7 +107,7 @@ async def update_database_schema(
 @router.get("/databases/{database}/schema/properties", response_model=Dict[str, schema_models.SchemaProperty])
 async def get_schema_properties(
     database: str, 
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -124,7 +118,7 @@ async def get_schema_properties(
 @router.get("/databases/{database}/schema/primitives", response_model=Dict[str, schema_models.SchemaPrimitive])
 async def get_schema_primitives(
     database: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -135,7 +129,7 @@ async def get_schema_primitives(
 @router.get("/databases/{database}/schema/composites", response_model=Dict[str, schema_models.SchemaComposite])
 async def get_schema_composites(
     database: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -147,7 +141,7 @@ async def get_schema_composites(
 async def get_schema_property(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -162,7 +156,7 @@ async def get_schema_property(
 async def get_schema_primitive(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -177,7 +171,7 @@ async def get_schema_primitive(
 async def get_schema_composite(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -193,7 +187,7 @@ async def update_schema_property(
     database: str,
     id: str,
     property: schema_models.SchemaProperty,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -208,7 +202,7 @@ async def update_schema_primitive(
     database: str,
     id: str,
     primitive: schema_models.SchemaPrimitive,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -223,7 +217,7 @@ async def update_schema_composite(
     database: str,
     id: str,
     composite: schema_models.SchemaComposite,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -237,7 +231,7 @@ async def update_schema_composite(
 async def delete_schema_property(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -254,7 +248,7 @@ async def delete_schema_property(
 async def delete_schema_primitive(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -271,7 +265,7 @@ async def delete_schema_primitive(
 async def delete_schema_composite(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -293,7 +287,7 @@ async def delete_schema_composite(
 # ################################################################################################
 
 @router.get("/databases/{database}/data", response_model=typed_models.SchemaData)
-async def get_data(database: str, model_storage: ModelStorage = Depends(get_model_storage)):
+async def get_data(database: str, model_storage: ModelStorage = Depends(env.get_model_storage)):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
     
@@ -304,7 +298,7 @@ async def get_data(database: str, model_storage: ModelStorage = Depends(get_mode
 async def update_data(
     database: str,
     data: typed_models.SchemaData,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -317,7 +311,7 @@ async def update_data(
 @router.get("/databases/{database}/data/primitives", response_model=Dict[str, typed_models.Primitive])
 async def get_data_primitives(
     database: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -328,7 +322,7 @@ async def get_data_primitives(
 @router.get("/databases/{database}/data/composites", response_model=Dict[str, typed_models.Composite])
 async def get_data_composites(
     database: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -340,7 +334,7 @@ async def get_data_composites(
 async def get_data_primitive(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -355,7 +349,7 @@ async def get_data_primitive(
 async def get_data_composite(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -371,7 +365,7 @@ async def update_data_primitive(
     database: str,
     id: str,
     primitive: typed_models.Primitive,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -386,7 +380,7 @@ async def update_data_composite(
     database: str,
     id: str,
     composite: typed_models.Composite,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -400,7 +394,7 @@ async def update_data_composite(
 async def delete_data_primitive(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -417,7 +411,7 @@ async def delete_data_primitive(
 async def delete_data_composite(
     database: str,
     id: str,
-    model_storage: ModelStorage = Depends(get_model_storage)
+    model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -443,7 +437,7 @@ async def delete_data_composite(
 async def evaluate(
     database: str,
     combination: untyped_models.EvaluateRequest,
-    model_storage: ModelStorage = Depends(get_model_storage),
+    model_storage: ModelStorage = Depends(env.get_model_storage),
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
@@ -463,7 +457,7 @@ async def evaluate(
 # async def search(
 #     database: str, 
 #     query: database_search.DatabaseSearchRequest = Body(...), 
-#     model_storage: ModelStorage = Depends(get_model_storage),
+#     model_storage: ModelStorage = Depends(env.get_model_storage),
 #     schema_storage: SchemaStorage = Depends(get_schema_storage)
 # ):
 #     if not schema_storage.exists(database):

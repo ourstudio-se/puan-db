@@ -1,9 +1,8 @@
-import logging
 import uvicorn
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 
 from api.settings import EnvironmentVariables
 from api.routers.database_router import router as database_router
@@ -11,7 +10,10 @@ from api.routers.tools_router import router as tools_router
 from api.middleware import SimpleAuthMiddleware, ValueErrorMiddleware
 
 env = EnvironmentVariables()
-logger = logging.getLogger(__name__)
+
+# Print all environment variables on initialization
+for key, value in env.model_dump().items():
+    logger.info(f"{key}={value}")
 
 app = FastAPI()
 

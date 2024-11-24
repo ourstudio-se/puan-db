@@ -1,14 +1,44 @@
 
 import logging
 import pickle
+import re
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from redis import Redis
-from typing import Type, TypeVar, Generic, Optional, Dict, List
+from typing import Type, TypeVar, Generic, Optional, Dict, List, Any
 from pydantic import BaseModel
-from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
+
+@dataclass
+class LocalStorage:
+
+    _data: Dict[str, Any] = field(default_factory=dict)
+
+    def ping(self) -> bool:
+        return True
+
+    def set(self, key: str, value) -> None:
+        self._data[key] = value
+
+    def get(self, key: str) -> Optional[Any]:
+        return self._data.get(key)
+    
+    def delete(self, key: str) -> None:
+        self._data.pop(key, None)
+
+    def exists(self, key: str) -> bool:
+        return key in self._data
+    
+    def mget(self, keys: List[str]) -> List[Optional[Any]]:
+        return [self._data.get(key) for key in keys]
+    
+    def keys(self, pattern: str) -> List[str]:
+        return [
+            key
+            for key in self._data.keys()
+            if re.match(pattern.replace("*", ".*"), key)
+        ]
 
 @dataclass
 class RedisStorage:
@@ -16,7 +46,10 @@ class RedisStorage:
     url: str
 
     def __post_init__(self):
-        self.client = Redis.from_url(self.url)
+        if self.url is None:
+            self.client = LocalStorage()
+        else:
+            self.client = Redis.from_url(self.url)
         self.client.ping()
 
     def store_pickle(self, key: str, value):
