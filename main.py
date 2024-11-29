@@ -37,13 +37,17 @@ app.add_middleware(ValueErrorMiddleware)
 app.include_router(database_router, prefix="/api/v1")
 app.include_router(tools_router, prefix="/api/v1")
 
+@app.get("/")
+async def health_check_0():
+    return {"status": "ok"}
+
 @app.get("/health", tags=["Monitoring"])
-async def health_check():
+async def health_check_1():
     """
     Health endpoint to check if the application is running.
     This is a simple endpoint that just returns a 200 status.
     """
-    return {"status": "healthy"}
+    return {"status": "ok"}
 
 @app.get("/ready", tags=["Monitoring"])
 async def readiness_check():
@@ -52,7 +56,9 @@ async def readiness_check():
     It checks dependencies like database connectivity.
     """
     try:
-        env.solver.health()
+        result = await env.solver.health()
+        if not result:
+            raise Exception("no response from solver")
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service not ready: {str(e)}")
 
