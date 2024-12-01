@@ -17,6 +17,16 @@ class SchemaPropertyDType(str, Enum):
     boolean = "boolean"
     string  = "string"
 
+    def to_python(self):
+        if self == SchemaPropertyDType.integer:
+            return int
+        elif self == SchemaPropertyDType.float:
+            return float
+        elif self == SchemaPropertyDType.boolean:
+            return bool
+        elif self == SchemaPropertyDType.string:
+            return str
+
 class SchemaQuantifier(Enum):
     zero_or_more = "*"
     zero_or_one = "?"
@@ -198,7 +208,7 @@ class DatabaseSchema(BaseModel):
         for pkey, prim in self.primitives.items():
             for prop in prim.properties:
                 if prop.default is not None:
-                    if type(prop.default).__name__ != self.properties[prop.property].dtype:
+                    if type(prop.default) != self.properties[prop.property].dtype.to_python():
                         raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.property].dtype.value}, got {type(prop.default).__name__}")
         
         return self

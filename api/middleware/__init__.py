@@ -53,7 +53,7 @@ class ValueErrorMiddleware(BaseHTTPMiddleware):
                 status_code=400, 
                 content={
                     "type": "SCHEMA_VALIDATION_ERROR",
-                    "message": str(e)
+                    "detail": str(e)
                 }
             )
         except Exception as e:
@@ -62,6 +62,6 @@ class ValueErrorMiddleware(BaseHTTPMiddleware):
                 status_code=500,
                 content={
                     "type": "UNKNOWN_ERROR",
-                    "message": "Internal Server Error"
+                    "detail": "Internal Server Error"
                 }
             )
