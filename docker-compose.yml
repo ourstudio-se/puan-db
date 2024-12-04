@@ -14,7 +14,7 @@ services:
 
   solver:
     container_name: solver
-    image: znittzel/puan-solver-orchestrator:0.1.2
+    image: znittzel/puan-solver-orchestrator:0.1.4
     networks:
       - puanet
     environment:

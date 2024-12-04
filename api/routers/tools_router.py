@@ -1,25 +1,18 @@
-import logging
 import api.models.untyped_model as schema_models
 
 from fastapi import APIRouter, HTTPException, Query
 from pldag import PLDAG, CompilationSetting
 from itertools import starmap
+from loguru import logger
 
 from api.settings import EnvironmentVariables
-from api.tools import timer
 
 router = APIRouter()
 env = EnvironmentVariables()
-logger = logging.getLogger(__name__)
 
 @router.post("/tools/search", response_model=schema_models.SolverProblemResponse)
 async def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: bool = Query(False, alias="onlyPrimitives")):
     try:
-
-        solver_health = await env.solver.health()
-        if not solver_health:
-            raise HTTPException(status_code=503, detail=f"Solver service not ready at {env.solver.url}.")
-
         if len(model_problem.model) == 0:
             raise HTTPException(status_code=400, detail="Model is empty.")
         

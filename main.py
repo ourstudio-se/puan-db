@@ -1,4 +1,5 @@
 import uvicorn
+import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,9 @@ from api.routers.tools_router import router as tools_router
 from api.middleware import SimpleAuthMiddleware, ValueErrorMiddleware
 
 env = EnvironmentVariables()
+
+# Configure logging
+logging.disable(getattr(logging, env.LOG_LEVEL, logging.INFO))
 
 # Print all environment variables on initialization
 for key, value in env.model_dump().items():
@@ -63,6 +67,13 @@ async def readiness_check():
         raise HTTPException(status_code=503, detail=f"Service not ready: {str(e)}")
 
     return {"status": "ready"}
+
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/health") == -1 and record.getMessage().find("/ready") == -1
+
+# Filter out healthcheck and readiness check logs
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=env.PORT)
