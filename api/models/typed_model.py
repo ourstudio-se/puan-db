@@ -37,7 +37,7 @@ class Primitive(BaseModel):
         
         for schema_property in schema_primitive_properties.properties:
             if not schema_property.property in self.properties and schema_property.default is None:
-                raise ValueError(f"{id} missing property '{schema_property.property}'")
+                raise ValueError(f"{id} missing property '{schema_property.property}' and no default value set")
             else:
                 schema_property_base = schema.properties[schema_property.property]
                 # It is ok to be null, or not set here, so if schema property key is not in node properties just continue
@@ -378,3 +378,12 @@ class DatabaseModel(BaseModel):
         model.compile()
 
         return model
+    
+    def update_properties(self, proposition: CompPrimitive) -> CompPrimitive:
+        for property_id in proposition.properties:
+            schema_property = self.database_schema.properties.get(property_id)
+            try:
+                proposition.properties[property_id] = schema_property.dtype.to_python()(proposition.properties[property_id])
+            except:
+                continue
+        return proposition
