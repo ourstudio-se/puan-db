@@ -9,7 +9,7 @@ from api.settings import EnvironmentVariables
 from api.storage.databases import *
 
 from pldag import PLDAG
-from fastapi import APIRouter, HTTPException, Depends, Body
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from itertools import starmap
 from typing import List, Dict, Optional
 
@@ -311,13 +311,19 @@ async def update_data(
 @router.get("/databases/{database}/data/primitives", response_model=Dict[str, typed_models.Primitive])
 async def get_data_primitives(
     database: str,
+    ptype: Optional[str] = Query(None),
     model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    return database_model.data.primitives
+    return dict(
+        filter(
+            lambda p: (ptype is None) or (p[1].ptype == ptype),
+            database_model.data.primitives.items()
+        )
+    )
 
 @router.get("/databases/{database}/data/composites", response_model=Dict[str, typed_models.Composite])
 async def get_data_composites(
@@ -371,7 +377,7 @@ async def update_data_primitive(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    database_model.data.primitives[id] = primitive
+    database_model.data.primitives[id] = database_model.update_properties(primitive)
     model_storage.set(database, database_model)
     return primitive
 
@@ -386,7 +392,7 @@ async def update_data_composite(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    database_model.data.composites[id] = composite
+    database_model.data.composites[id] = database_model.update_properties(composite)
     model_storage.set(database, database_model)
     return composite
 

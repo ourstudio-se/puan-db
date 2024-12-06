@@ -209,7 +209,11 @@ class DatabaseSchema(BaseModel):
             for prop in prim.properties:
                 if prop.default is not None:
                     if type(prop.default) != self.properties[prop.property].dtype.to_python():
-                        raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.property].dtype.value}, got {type(prop.default).__name__}")
+                        try:
+                            # Try to cast default value to the expected type if possible
+                            prop.default = self.properties[prop.property].dtype.to_python()(prop.default)
+                        except ValueError:
+                            raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.property].dtype.value}, got {type(prop.default).__name__}")
         
         return self
 
