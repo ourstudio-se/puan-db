@@ -1,3 +1,5 @@
+import gc
+import numpy as np
 import api.models.untyped_model as schema_models
 
 from fastapi import APIRouter, HTTPException, Query
@@ -19,7 +21,7 @@ async def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: 
         if len(model_problem.problem.objectives) == 0:
             raise HTTPException(status_code=400, detail="No objectives to solve.")
 
-        model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND)
+        model = PLDAG(compilation_setting=CompilationSetting.ON_DEMAND, dtype=np.int8)
         for proposition in model_problem.model:
             proposition.set_model(model)
 
@@ -37,6 +39,7 @@ async def solve(model_problem: schema_models.ToolsSearchModel, only_primitives: 
                 objectives=model_problem.problem.objectives,
                 maximize=model_problem.problem.direction.value == "maximize",
             )
+            gc.collect()
         except Exception as e:
             logger.error(f"Solver error: {str(e)}")
             raise HTTPException(status_code=500, detail="Solver error. Please check logs.")

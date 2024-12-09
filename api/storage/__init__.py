@@ -4,7 +4,7 @@ import pickle
 import re
 
 from dataclasses import dataclass, field
-from redis import Redis
+from redis import StrictRedis
 from typing import Type, TypeVar, Generic, Optional, Dict, List, Any
 from pydantic import BaseModel
 
@@ -49,7 +49,29 @@ class RedisStorage:
         if self.url is None:
             self.client = LocalStorage()
         else:
-            self.client = Redis.from_url(self.url)
+            try:
+                # Split and parse the connection string
+                host_port, password, ssl = self.url.split(",")[:3]
+                
+                # Extract host and port
+                host, port = host_port.split(":")
+                
+                # Extract password
+                password = password.replace('password=', '')
+                
+                # Convert SSL to a proper boolean
+                ssl = ssl.split("=")[1].lower() == "true"
+                
+                # Initialize the Redis client
+                self.client = StrictRedis(
+                    host=host.strip(),
+                    port=int(port.strip()),
+                    password=password.strip(),
+                    ssl=ssl
+                )
+            except Exception as e:
+                logger.error(f"Failed to connect to Redis at {self.url} because '{e}'. Defaulting to LocalStorage.")
+                self.client = LocalStorage()
         self.client.ping()
 
     def store_pickle(self, key: str, value):
