@@ -1032,13 +1032,13 @@ ptyprocess = ">=0.5"
 
 [[package]]
 name = "pldag"
-version = "0.10.3"
+version = "0.10.4"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "pldag-0.10.3-py3-none-any.whl", hash = "sha256:ba6fd4ccdbbead73d0942e7459689c24b8e5c68040eae7e2ceb65178df16a079"},
-    {file = "pldag-0.10.3.tar.gz", hash = "sha256:d222dc0c21ca8568a3fdeed04c7c89e2b3a8539a0095c0f2d25f54fd8effb5e6"},
+    {file = "pldag-0.10.4-py3-none-any.whl", hash = "sha256:f8006c46e28fb5226f3221d29e85fb5c5b317e5635ae546491aad66c0a098fe5"},
+    {file = "pldag-0.10.4.tar.gz", hash = "sha256:30d310332ce695c2fb7cdd25216f094729c7b2bfc5c20fd8231ca3771eac80ef"},
 ]
 
 [package.dependencies]
@@ -1991,4 +1991,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "a883e0b12aa84561c9b57e6c9a94815029325227ae201d7e4506b4bb77497cd2"
+content-hash = "6e86c39d421817710509aa94620f1f46c92e52611d413b36e5b82033523e658d"
