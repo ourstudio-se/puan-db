@@ -26,6 +26,32 @@ def test_define_property():
     except ValueError:
         assert True
 
+def test_update_data_property():
+    database_model = typed_models.DatabaseModel(
+        database_schema=schema_models.DatabaseSchema(
+            primitives={
+                "x": schema_models.SchemaPrimitive(
+                    ptype=schema_models.SchemaPrimitiveDtype.boolean
+                ),
+            }
+        ),
+        data=typed_models.SchemaData(
+            primitives={
+                "x": typed_models.Primitive(
+                    ptype="x",
+                    properties={
+                        "a": 100
+                    }
+                )
+            },
+            composites={}
+        )
+    )
+    updated_primitive = typed_models.Primitive(ptype="x", properties={"a": 200})
+    database_model.data.primitives["x"] = database_model.update_properties(updated_primitive)
+    assert database_model.data.primitives["x"] == updated_primitive
+    
+
 def test_define_schema():
     
     schema_models.DatabaseSchema(

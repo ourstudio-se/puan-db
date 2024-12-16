@@ -45,14 +45,14 @@ class Primitive(BaseModel):
                     continue
                 node_property = self.properties[schema_property.property]
                 if not isinstance(node_property, type_map[schema_property_base.dtype]):
-                    raise ValueError(f"Property '{schema_property.property}' for {id} is not of type {schema_property_base.dtype.value}")
+                    raise ValueError(f"Property '{schema_property.property}' for '{id}' is not of type {schema_property_base.dtype.value}")
 
     def validate_schema(self, id: str, model: Dict[str, "CompPrimitive"], schema: schema_models.DatabaseSchema) -> Optional["SchemaPropositionError"]:
         """Returns a list of validation errors"""
 
         # Check that the model has all the required propositions
         if not self.ptype in schema.primitives and not self.ptype in schema.composites:
-            raise ValueError(f"Data type '{self.ptype}' set for {id} not found in schema")
+            raise ValueError(f"Data type '{self.ptype}' set for '{id}' not found in schema")
         else:
             if self.definition == Definition.primitive:
                 if self.ptype not in schema.primitives:
@@ -69,7 +69,7 @@ class Primitive(BaseModel):
                     # Includes checking argument one by one 
                     schema_composite = schema.composites[self.ptype]
                     argument_dtypes_count = {}
-                    for argument in self.arguments:
+                    for argument in self.inputs:
                         if not argument in model:
                             raise ValueError(f"Argument '{argument}' set for {id} not defined in data")
                         else:
