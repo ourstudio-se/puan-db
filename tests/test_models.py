@@ -405,8 +405,8 @@ def test_proposition_definition_order_in_model():
                 }
             )
         )
-        db_model.validate_all()
-        assert False
+        errors = db_model.validate_all()
+        assert len(errors.errors) > 0
     except ValueError:
         assert True
 

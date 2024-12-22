@@ -6,7 +6,7 @@ from pldag import PLDAG, CompilationSetting
 import api.models.schema as schema_models
 import api.models.query as query_models
 
-Properties = Dict[str, Union[int, float, bool, str]]
+Properties = Dict[str, Optional[Union[int, float, bool, str]]]
 
 class Definition(str, Enum):
     primitive = "primitive"
@@ -17,7 +17,7 @@ class Primitive(BaseModel):
     ptype: str
     properties: Properties = {}
 
-    def validate_properties(self, id: str, schema: schema_models.DatabaseSchema):
+    def validate_properties(self, id: str, schema: schema_models.DatabaseSchema) -> List[str]:
         type_map = {
             "integer": int,
             "float": float,
@@ -25,19 +25,21 @@ class Primitive(BaseModel):
             "string": str
         }
 
+        errors: List[str] = []
+
         # Get the specific schema properties of the node
         schema_primitive_properties = schema.primitives.get(self.ptype, schema.composites.get(self.ptype))
         if schema_primitive_properties is None:
             if self.properties:
-                raise ValueError(f"Dtype '{self.ptype}' has no properties in schema but has properties in data ({id})")
+                errors.append(f"Dtype '{self.ptype}' has no properties in schema but has properties in data ({id})")
         
         for model_property in self.properties:
             if model_property not in map(lambda p: p.property, schema_primitive_properties.properties):
-                raise ValueError(f"Property '{model_property}' set for {id} not found in schema")
+                errors.append(f"Property '{model_property}' set for {id} not found in schema")
         
         for schema_property in schema_primitive_properties.properties:
             if not schema_property.property in self.properties and schema_property.default is None:
-                raise ValueError(f"{id} missing property '{schema_property.property}' and no default value set")
+                errors.append(f"{id} missing property '{schema_property.property}' and no default value set")
             else:
                 schema_property_base = schema.properties[schema_property.property]
                 # It is ok to be null, or not set here, so if schema property key is not in node properties just continue
@@ -45,38 +47,42 @@ class Primitive(BaseModel):
                     continue
                 node_property = self.properties[schema_property.property]
                 if not isinstance(node_property, type_map[schema_property_base.dtype]):
-                    raise ValueError(f"Property '{schema_property.property}' for '{id}' is not of type {schema_property_base.dtype.value}")
+                    errors.append(f"Property '{schema_property.property}' for '{id}' is not of type {schema_property_base.dtype.value}")
 
-    def validate_schema(self, id: str, model: Dict[str, "CompPrimitive"], schema: schema_models.DatabaseSchema) -> Optional["SchemaPropositionError"]:
+        return errors
+
+    def validate_schema(self, id: str, model: Dict[str, "CompPrimitive"], schema: schema_models.DatabaseSchema) -> List[str]:
         """Returns a list of validation errors"""
-
+        
+        errors: List[str] = []
+        
         # Check that the model has all the required propositions
         if not self.ptype in schema.primitives and not self.ptype in schema.composites:
-            raise ValueError(f"Data type '{self.ptype}' set for '{id}' not found in schema")
+            errors.append(f"Data type '{self.ptype}' set for '{id}' not found in schema")
         else:
             if self.definition == Definition.primitive:
                 if self.ptype not in schema.primitives:
-                    raise ValueError(f"Primitive data type '{self.ptype}' set for {id} not found in schema")
+                    errors.append(f"Primitive data type '{self.ptype}' set for {id} not found in schema")
                 else:
-                    self.validate_properties(id, schema)
+                    errors += self.validate_properties(id, schema)
 
             elif self.definition == Definition.composite:
                 if self.ptype not in schema.composites:
-                    raise ValueError(f"Composite data type '{self.ptype}' set for {id} not found in schema")
+                    errors.append(f"Composite data type '{self.ptype}' set for {id} not found in schema")
                 else:
-                    self.validate_properties(id, schema)
+                    errors += self.validate_properties(id, schema)
                 
                     # Includes checking argument one by one 
                     schema_composite = schema.composites[self.ptype]
                     argument_dtypes_count = {}
                     for argument in self.inputs:
                         if not argument in model:
-                            raise ValueError(f"Argument '{argument}' set for {id} not defined in data")
+                            errors.append(f"Argument '{argument}' set for {id} not defined in data")
                         else:
                             argument_node = model[argument]
                             if not argument_node.ptype in map(lambda x: x.variable, schema_composite.relation.inputs):
                                 expecting_types = ", ".join(map(lambda item: item.variable, schema_composite.relation.inputs))
-                                raise ValueError(f"Expected argument '{argument}' to be of type [{expecting_types}], but got <{argument_node.ptype}>")
+                                errors.append(f"Expected argument '{argument}' to be of type [{expecting_types}], but got <{argument_node.ptype}>")
                             else:
                                 argument_dtypes_count.setdefault(argument_node.ptype, 0)
                                 argument_dtypes_count[argument_node.ptype] += 1
@@ -93,14 +99,16 @@ class Primitive(BaseModel):
                         count = argument_dtypes_count.get(schema_dtype, 0)
                         if type(schema_quantifier) == int:
                             if count != schema_quantifier:
-                                raise ValueError(f"Requires <exactly {schema_quantifier}> proposition(s) of type '{schema_dtype}' ({id})")
+                                errors.append(f"Requires <exactly {schema_quantifier}> proposition(s) of type '{schema_dtype}' ({id})")
                         else:
                             if schema_quantifier == schema_models.SchemaQuantifier.one_or_more:
                                 if count < 1:
-                                    raise ValueError(f"Requires <atleast 1> propositions of type '{relation_item.variable}' ({id})")
+                                    errors.append(f"Requires <atleast 1> propositions of type '{relation_item.variable}' ({id})")
                             elif schema_quantifier == schema_models.SchemaQuantifier.zero_or_one:
                                 if count > 1:
-                                    raise ValueError(f"Requires <atmost 1> propositions of type '{relation_item.variable}' ({id})")
+                                    errors.append(f"Requires <atmost 1> propositions of type '{relation_item.variable}' ({id})")
+
+        return errors
 
 class Composite(Primitive):
 
@@ -117,14 +125,6 @@ class Composite(Primitive):
         )
 
 CompPrimitive = Union[Composite, Primitive]
-
-class SchemaPropositionError(BaseModel):
-    errors: List[str]
-    node: Optional[Union[Composite, Primitive]]
-
-class SchemaTypeCheckingError(BaseModel):
-    general_errors: List[str]
-    proposition_errors: List[SchemaPropositionError]
 
 class SchemaData(BaseModel):
     primitives: Dict[str, Primitive]
@@ -181,7 +181,9 @@ class DatabaseModel(BaseModel):
             )
         )
     
-    def validate_all(self) -> "DatabaseModel":
+    def validate_all(self) -> "SchemaValidationResponse":
+        
+        errors = SchemaValidationResponse()
         if self.database_schema is None:
             raise ValueError("Model schema is not defined")
         
@@ -192,30 +194,40 @@ class DatabaseModel(BaseModel):
         model_data = self.propositions
         
         # Check if all arguments are defined
-        for composite in self.data.composites.values():
+        for _id, composite in self.data.composites.items():
             for argument in composite.inputs:
                 if not argument in model_data:
-                    raise ValueError(f"Argument '{argument}' is not defined")
+                    errors.add_error(_id, f"Argument '{argument}' is not defined")
         
         # Check each proposition against the schema
         for id, proposition in model_data.items():
-            proposition.validate_schema(id, model_data, self.database_schema)
+            for error in proposition.validate_schema(id, model_data, self.database_schema):
+                errors.add_error(id, error)
 
         # Check the general schema
         for schema_proposition_key, schema_proposition in {**self.database_schema.primitives, **self.database_schema.composites}.items():
             count = sum(map(lambda x: x.ptype == schema_proposition_key, self.propositions.values()))
             if type(schema_proposition.quantifier) == int:
                 if count != schema_proposition.quantifier:
-                    raise ValueError(f"Schema requires <exactly {schema_proposition.quantifier}> proposition(s) of type '{schema_proposition_key}', but got <{count}>")
+                    errors.add_error(
+                        schema_proposition_key,
+                        f"Schema requires <exactly {schema_proposition.quantifier}> proposition(s) of type '{schema_proposition_key}', but got <{count}>"
+                    )
             else:
                 if schema_proposition.quantifier == schema_models.SchemaQuantifier.one_or_more:
                     if count < 1:
-                        raise ValueError(f"Schema requires <atleast 1> proposition(s) of type '{schema_proposition_key}', but got {count}")
+                        errors.add_error(
+                            schema_proposition_key,
+                            f"Schema requires <atleast 1> proposition(s) of type '{schema_proposition_key}', but got {count}"
+                        )
                 elif schema_proposition.quantifier == schema_models.SchemaQuantifier.zero_or_one:
                     if count > 1:
-                        raise ValueError(f"Schema requires <atmost 1> proposition of type '{schema_proposition_key}', but got {count}")
+                        errors.add_error(
+                            schema_proposition_key,
+                            f"Schema requires <atmost 1> proposition of type '{schema_proposition_key}', but got {count}"
+                        )
 
-        return self
+        return errors
     
     def update(self, propositions: Dict[str, CompPrimitive]) -> "DatabaseModel":
         """Updates propositions by id and returns a Model with the updated proposition"""
@@ -387,3 +399,11 @@ class DatabaseModel(BaseModel):
             except:
                 continue
         return proposition
+    
+class SchemaValidationResponse(BaseModel):
+
+    errors: Dict[str, List[str]] = {}
+
+    def add_error(self, key: str, error: str):
+        self.errors.setdefault(key, [])
+        self.errors[key].append(error)

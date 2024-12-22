@@ -4,7 +4,7 @@ import pickle
 import re
 
 from dataclasses import dataclass, field
-from redis import StrictRedis
+from redis import StrictRedis, Redis
 from typing import Type, TypeVar, Generic, Optional, Dict, List, Any
 from pydantic import BaseModel
 
@@ -70,8 +70,12 @@ class RedisStorage:
                     ssl=ssl
                 )
             except Exception as e:
-                logger.error(f"Failed to connect to Redis at {self.url} because '{e}'. Defaulting to LocalStorage.")
-                self.client = LocalStorage()
+                logger.error(f"Failed to connect to Redis remote at {self.url} because '{e}'. Trying local redis.")
+                try:
+                    self.client = Redis.from_url(self.url)
+                except Exception as e:
+                    logger.error(f"Failed to connect to Redis locally at {self.url} because '{e}'. Defaulting to LocalStorage.")
+                    self.client = LocalStorage()
         self.client.ping()
 
     def store_pickle(self, key: str, value):

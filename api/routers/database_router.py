@@ -308,6 +308,17 @@ async def update_data(
     model_storage.set(database, database_model)
     return data
 
+@router.get("/databases/{database}/data/errors", response_model=typed_models.SchemaValidationResponse)
+async def get_data_errors(
+    database: str, 
+    model_storage: ModelStorage = Depends(env.get_model_storage),    
+):
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database not found")
+    
+    database_model: typed_models.DatabaseModel = model_storage.get(database)
+    return database_model.validate_all()
+
 @router.get("/databases/{database}/data/primitives", response_model=Dict[str, typed_models.Primitive])
 async def get_data_primitives(
     database: str,

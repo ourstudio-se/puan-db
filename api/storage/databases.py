@@ -14,5 +14,4 @@ class ModelStorage(NaiveStorage[BaseModel]):
         super().__init__(url, "model", model_class=DatabaseModel)
 
     def set(self, id: str, data: DatabaseModel):
-        data.validate_all()
         super().store_pickle(f"{self.__mname__}:{id}", data)
