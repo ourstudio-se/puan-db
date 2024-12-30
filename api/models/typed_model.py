@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Dict, Union, List, Optional
 from pldag import PLDAG, CompilationSetting
@@ -6,7 +6,9 @@ from pldag import PLDAG, CompilationSetting
 import api.models.schema as schema_models
 import api.models.query as query_models
 
-Properties = Dict[str, Optional[Union[int, float, bool, str]]]
+class DynamicValue(BaseModel):
+    min_: Optional[Union[float, bool, str]] = Field(None, alias="min")
+    max_: Optional[Union[float, bool, str]] = Field(None, alias="max")
 
 class Definition(str, Enum):
     primitive = "primitive"
@@ -15,7 +17,7 @@ class Definition(str, Enum):
 class Primitive(BaseModel):
     definition: Definition = Definition.primitive
     ptype: str
-    properties: Properties = {}
+    properties: Dict[str, Optional[Union[int, float, bool, str, DynamicValue]]] = {}
 
     def validate_properties(self, id: str, schema: schema_models.DatabaseSchema) -> List[str]:
         type_map = {
@@ -114,15 +116,8 @@ class Composite(Primitive):
 
     # Composite specific properties
     definition: Definition = Definition.composite
+    dynamic_properties: Dict[str, DynamicValue] = {}
     inputs: List[str]
-
-    def delete_argument(self, id: str) -> "Composite":
-        return Composite(
-            id=self.id,
-            ptype=self.ptype,
-            properties=self.properties,
-            inputs=list(filter(lambda x: x != id, self.inputs))
-        )
 
 CompPrimitive = Union[Composite, Primitive]
 

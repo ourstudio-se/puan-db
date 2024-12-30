@@ -84,9 +84,13 @@ class SchemaProperty(BaseModel):
     dtype: SchemaPropertyDType
     description: Optional[str] = None
 
+class SchemaDynamicPropertyOption(str, Enum):
+    sum_ = "sum"
+
 class SchemaPropertyReference(BaseModel):
     property: str
     default: Optional[Union[int, float, bool, str]] = None
+    dynamic: Optional[SchemaDynamicPropertyOption] = None
 
 class SchemaProposition(BaseModel):
     properties: List[SchemaPropertyReference] = []
@@ -103,17 +107,8 @@ class SchemaPrimitive(SchemaProposition):
             return SchemaPrimitiveDtype(value)
         return value
 
-class SchemaAggregateType(str, Enum):
-    sum_ = "sum"
-    mean_ = "mean"
-
-class SchemaAggregate(BaseModel):
-    type: SchemaAggregateType
-    source: str
-
 class SchemaComposite(SchemaProposition):
     relation: Union[SchemaValuedRelation, SchemaLogicRelation]
-    aggregates: Dict[str, SchemaAggregate] = {}
 
     @field_validator("relation")
     def validate_relation(cls, value):
@@ -131,12 +126,8 @@ class SchemaComposite(SchemaProposition):
                     raise ValueError(f"Binary relation ({binary_operators}) must have <exactly one> quantifier set for each item")
         return value
     
-    @field_validator("aggregates")
-    def validate_aggregates(cls, value, values):
-        """Aggregate key must not be in properties"""
-        for key in value:
-            if key in map(lambda property: property.property, values.data.get('properties', {})):
-                raise ValueError(f"Aggregate key '{key}' will be resolved into a property, therefore it must not already be defined in properties. Remove/rename key '{key}' in properties or aggregates.")
+    @field_validator("properties")
+    def validate_dynamic_properties(cls, value, values):
         return value
 
 class DatabaseSchema(BaseModel):
@@ -186,23 +177,6 @@ class DatabaseSchema(BaseModel):
             for item in comp.relation.inputs:
                 if item.variable not in self.primitives and item.variable not in self.composites:
                     raise ValueError(f"Undefined input variable '{item.variable}' used in composite '{comp_key}'")
-
-        # Validate aggregates:
-        # All relation's types must have the same dtype as the source of the aggregate
-        for composite_key, composite in self.composites.items():
-            missing_items = []
-            for aggregate_key, aggregate in composite.aggregates.items():
-                for item in composite.relation.inputs:
-                    schema_item = self.composites.get(item.variable, self.primitives.get(item.variable))
-                    if not any(map(lambda property: property.property == aggregate.source, schema_item.properties)):
-                        missing_items.append(item.variable)
-
-                # It also includes having the property defined in the properties
-                if not aggregate.source in map(lambda x: x.property, composite.properties):
-                    missing_items.append(composite_key)
-            
-            if missing_items:
-                raise ValueError(f"Aggregate '{aggregate_key}' requires all items to have a property of type '{aggregate.source}': {', '.join(missing_items)}")
             
         # Check that default values are valid
         for pkey, prim in self.primitives.items():
