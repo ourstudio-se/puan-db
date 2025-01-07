@@ -200,7 +200,7 @@ async def get_database(
     # Resolve dynamic properties
     await resolve_dynamic_properties(database_model)    
 
-    return database_model
+    return database_model.sorted()
 
 # ################################################################################################
 # # --------------------------------- DATABASE OPERATIONS [END] -----------------------------------#
@@ -215,7 +215,7 @@ async def get_database_schema(database: str, model_storage: ModelStorage = Depen
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     if database_model is None:
         raise HTTPException(status_code=404, detail="Database not found")
-    return database_model.database_schema
+    return database_model.database_schema.sorted()
 
 @router.patch("/databases/{database}/schema", response_model=schema_models.DatabaseSchema)
 async def update_database_schema(
@@ -229,7 +229,7 @@ async def update_database_schema(
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     database_model.database_schema = schema
     model_storage.set(database, database_model)
-    return schema
+    return schema.sorted()
 
 @router.get("/databases/{database}/schema/properties", response_model=Dict[str, schema_models.SchemaProperty])
 async def get_schema_properties(
@@ -240,7 +240,7 @@ async def get_schema_properties(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    return database_model.database_schema.properties
+    return database_model.database_schema.sorted().properties
 
 @router.get("/databases/{database}/schema/primitives", response_model=Dict[str, schema_models.SchemaPrimitive])
 async def get_schema_primitives(
@@ -251,7 +251,7 @@ async def get_schema_primitives(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    return database_model.database_schema.primitives
+    return database_model.database_schema.sorted().primitives
 
 @router.get("/databases/{database}/schema/composites", response_model=Dict[str, schema_models.SchemaComposite])
 async def get_schema_composites(
@@ -262,7 +262,7 @@ async def get_schema_composites(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    return database_model.database_schema.composites
+    return database_model.database_schema.sorted().composites
 
 @router.get("/databases/{database}/schema/properties/{id}", response_model=schema_models.SchemaProperty)
 async def get_schema_property(
@@ -420,7 +420,7 @@ async def get_data(database: str, model_storage: ModelStorage = Depends(env.get_
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     await resolve_dynamic_properties(database_model)
-    return database_model.data
+    return database_model.data.sorted()
 
 @router.patch("/databases/{database}/data", response_model=typed_models.SchemaData)
 async def update_data(
@@ -434,7 +434,7 @@ async def update_data(
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     database_model.data = data
     model_storage.set(database, database_model)
-    return data
+    return data.sorted()
 
 @router.get("/databases/{database}/data/errors", response_model=typed_models.SchemaValidationResponse)
 async def get_data_errors(
@@ -460,7 +460,7 @@ async def get_data_primitives(
     return dict(
         filter(
             lambda p: (ptype is None) or (p[1].ptype == ptype),
-            database_model.data.primitives.items()
+            database_model.data.sorted().primitives.items()
         )
     )
 
@@ -478,7 +478,7 @@ async def get_data_composites(
     filtered_composites = dict(
         filter(
             lambda p: (ptype is None) or (p[1].ptype == ptype),
-            database_model.data.composites.items()
+            database_model.data.sorted().composites.items()
         )
     )
 

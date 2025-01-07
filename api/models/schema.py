@@ -135,6 +135,14 @@ class DatabaseSchema(BaseModel):
     properties: Dict[str, SchemaProperty] = {}
     composites: Dict[str, SchemaComposite] = {}
 
+    def sorted(self) -> "DatabaseSchema":
+        """Returns the DatabaseSchema but sorted by keys"""
+        return DatabaseSchema(
+            primitives=dict(sorted(self.primitives.items())),
+            properties=dict(sorted(self.properties.items())),
+            composites=dict(sorted(self.composites.items()))
+        )
+
     # @model_validator(mode='after')
     # def typecheck(self):
 

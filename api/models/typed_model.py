@@ -137,11 +137,30 @@ class SchemaData(BaseModel):
     
     def exists(self, id: str) -> bool:
         return id in self.primitives or id in self.composites
+    
+    def model_dump(self, *args, **kwargs):
+        data = super().model_dump(*args, **kwargs)
+        # Sort the dictionaries by key
+        data["primitives"] = dict(sorted(data["primitives"].items()))
+        data["composites"] = dict(sorted(data["composites"].items()))
+        return data
+    
+    def sorted(self) -> "SchemaData":
+        return SchemaData(
+            primitives=dict(sorted(self.primitives.items())),
+            composites=dict(sorted(self.composites.items()))
+        )
 
 class DatabaseModel(BaseModel):
     
     database_schema: schema_models.DatabaseSchema
     data: SchemaData
+
+    def sorted(self) -> "DatabaseModel":
+        return DatabaseModel(
+            database_schema=self.database_schema.sorted(),
+            data=self.data.sorted()
+        )
 
     @staticmethod
     def create_empty() -> "DatabaseModel":
