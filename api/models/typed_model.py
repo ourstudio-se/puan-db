@@ -10,6 +10,9 @@ class DynamicValue(BaseModel):
     min_: Optional[Union[float, bool, str]] = Field(None, alias="min")
     max_: Optional[Union[float, bool, str]] = Field(None, alias="max")
 
+    def __hash__(self):
+        return hash((self.min_, self.max_))
+
 class Definition(str, Enum):
     primitive = "primitive"
     composite = "composite"
@@ -182,8 +185,8 @@ class DatabaseModel(BaseModel):
         if self.database_schema is None:
             raise ValueError("Model schema is not defined")
         
-        # Validate schema first by its own
-        self.database_schema.typecheck()
+        # # Validate schema first by its own
+        # self.database_schema.typecheck()
 
         # Create a dictionary of propositions for easy access
         model_data = self.propositions

@@ -9,13 +9,138 @@ from api.settings import EnvironmentVariables
 from api.storage.databases import *
 
 from pldag import PLDAG
-from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, HTTPException, Depends, Query
 from itertools import starmap
 from typing import List, Dict, Optional
 
 router = APIRouter()
 env = EnvironmentVariables()
 logger = logging.getLogger(__name__)
+
+async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel):
+    # NOTE 1: Experimental feature to resolve dynamic properties
+    # NOTE 2: This will change the data in the database model
+    # NOTE 3: May raise an exception if the solver fails
+    dynamic_schema_properties = dict(
+        filter(
+            lambda v: v[1],
+            starmap(
+                lambda k, v: (
+                    k, 
+                    list(
+                        map(
+                            lambda property: property.property,
+                            filter(
+                                lambda p: getattr(p, 'dynamic', None), 
+                                v.properties
+                            )
+                        )
+                    )
+                ), 
+                database_model.database_schema.composites.items()
+            )
+        )
+    )
+    if dynamic_schema_properties:
+        value_resolver = {
+            int: lambda x: float(x),
+            float: lambda x: x,
+            str: lambda x: sum(ord(char) / (256 ** (i + 1)) for i, char in enumerate(x)),
+            bool: lambda x: float(x),
+            typed_models.DynamicValue: lambda _: 0
+        }
+        model = database_model.to_pldag()
+        data = {**database_model.data.primitives, **database_model.data.composites}
+        for composite_id, composite in filter(
+            lambda x: x[1].ptype in dynamic_schema_properties, 
+            database_model.data.composites.items()
+        ):
+            model_composite_id = model._amap[composite_id]
+            sub_model = model.sub([model_composite_id])
+            objectives_precalculated = list(
+                map(
+                    lambda prop: dict(
+                        starmap(
+                            lambda variable, value: (
+                                variable, 
+                                (value, value_resolver[type(value)](value))
+                            ),
+                            map(
+                                lambda variable: (
+                                    variable, 
+                                    getattr(data.get(variable, {}), 'properties', {}).get(prop, 0)
+                                ),
+                                map(
+                                    lambda column: str(sub_model.id_to_alias(column) or column),
+                                    sub_model.columns
+                                )
+                            )
+                        )
+                    ),
+                    dynamic_schema_properties[composite.ptype]
+                )
+            )
+            objectives = list(
+                map(
+                    lambda d: dict(
+                        starmap(
+                            lambda k,v: (k, v[1]),
+                            d.items()
+                        )
+                    ),
+                    objectives_precalculated
+                )
+            )
+            maximized_solutions = await env.solver.solve(
+                model=sub_model,
+                assume={model_composite_id: 1+1j},
+                objectives=objectives, 
+                maximize=True,
+            )
+            minimized_solutions = await env.solver.solve(
+                model=sub_model,
+                assume={model_composite_id: 1+1j},
+                objectives=objectives, 
+                maximize=False,
+            )
+            value_ranges = list(
+                zip(
+                    starmap(
+                        lambda i, solution: sum(
+                            starmap(
+                                lambda k,v: objectives[i].get(k, 0) * v,
+                                solution.solution.items(),
+                            )
+                        ),
+                        enumerate(minimized_solutions)
+                    ),
+                    starmap(
+                        lambda i, solution: sum(
+                            starmap(
+                                lambda k,v: objectives[i].get(k, 0) * v,
+                                solution.solution.items(),
+                            )
+                        ),
+                        enumerate(maximized_solutions)
+                    )
+                )
+            )
+            for i, prop_value_range in enumerate(zip(dynamic_schema_properties[composite.ptype], value_ranges)):
+                prop, value_range = prop_value_range
+                schema_property = database_model.database_schema.properties[prop]
+                reversed_precalc = dict(dict(sorted(objectives_precalculated[i].items(), key=lambda x: x[1][1])).values())
+                new_value_range = [value_range[0], value_range[1]]
+                if schema_property.dtype == schema_models.SchemaPropertyDType.string:
+                    for j in range(2):
+                        current_value = value_range[j]
+                        for k, v in reversed_precalc.items():
+                            if current_value == v:
+                                new_value_range[j] = k
+                                del reversed_precalc[k]
+                                break
+                    database_model.data.composites[composite_id].properties[prop] = typed_models.DynamicValue(**{'min': new_value_range[0], 'max': new_value_range[1]})
+                else:
+                    database_model.data.composites[composite_id].properties[prop] = typed_models.DynamicValue(**{'min': value_range[0], 'max': value_range[1]})
 
 ################################################################################################
 # --------------------------------- DATABASE OPERATIONS [BEGIN] ---------------------------------#
@@ -68,12 +193,14 @@ async def get_database(
         raise HTTPException(status_code=404, detail="Database not found")
     
     # Get data if it exists
-    data = model_storage.get(database)
-    if data is None:
+    database_model: typed_models.DatabaseModel = model_storage.get(database)
+    if database_model is None:
         raise HTTPException(status_code=404, detail="Database has no data")
-    
-    # Get data
-    return data
+
+    # Resolve dynamic properties
+    await resolve_dynamic_properties(database_model)    
+
+    return database_model
 
 # ################################################################################################
 # # --------------------------------- DATABASE OPERATIONS [END] -----------------------------------#
@@ -292,7 +419,7 @@ async def get_data(database: str, model_storage: ModelStorage = Depends(env.get_
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    # database_model.resolve_dynamic_properties()
+    await resolve_dynamic_properties(database_model)
     return database_model.data
 
 @router.patch("/databases/{database}/data", response_model=typed_models.SchemaData)
@@ -347,133 +474,13 @@ async def get_data_composites(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
+    await resolve_dynamic_properties(database_model)
     filtered_composites = dict(
         filter(
             lambda p: (ptype is None) or (p[1].ptype == ptype),
             database_model.data.composites.items()
         )
     )
-
-    # NOTE: Experimental feature to resolve dynamic properties
-    dynamic_schema_properties = dict(
-        filter(
-            lambda v: v[1],
-            starmap(
-                lambda k, v: (
-                    k, 
-                    list(
-                        map(
-                            lambda property: property.property,
-                            filter(
-                                lambda p: getattr(p, 'dynamic', None), 
-                                v.properties
-                            )
-                        )
-                    )
-                ), 
-                database_model.database_schema.composites.items()
-            )
-        )
-    )
-    if dynamic_schema_properties:
-        value_resolver = {
-            int: lambda x: float(x),
-            float: lambda x: x,
-            str: lambda x: float(len(x)),
-            bool: lambda x: float(x),
-        }
-        model = database_model.to_pldag()
-        data = {**database_model.data.primitives, **database_model.data.composites}
-        for composite_id, composite in filter(
-            lambda x: x[1].ptype in dynamic_schema_properties, 
-            filtered_composites.items()
-        ):
-            model_composite_id = model._amap[composite_id]
-            sub_model = model.sub([model_composite_id])
-            objectives_precalculated = list(
-                map(
-                    lambda prop: dict(
-                        starmap(
-                            lambda variable, value: (
-                                variable, 
-                                (value, value_resolver[type(value)](value))
-                            ),
-                            map(
-                                lambda variable: (
-                                    variable, 
-                                    getattr(data.get(variable, {}), 'properties', {}).get(prop, 0)
-                                ),
-                                map(
-                                    lambda column: str(sub_model.id_to_alias(column) or column),
-                                    sub_model.columns
-                                )
-                            )
-                        )
-                    ),
-                    dynamic_schema_properties[composite.ptype]
-                )
-            )
-            objectives = list(
-                map(
-                    lambda d: dict(
-                        starmap(
-                            lambda k,v: (k, v[1]),
-                            d.items()
-                        )
-                    ),
-                    objectives_precalculated
-                )
-            )
-            maximized_solutions = await env.solver.solve(
-                model=sub_model,
-                assume={model_composite_id: 1+1j},
-                objectives=objectives, 
-                maximize=True,
-            )
-            minimized_solutions = await env.solver.solve(
-                model=sub_model,
-                assume={model_composite_id: 1+1j},
-                objectives=objectives, 
-                maximize=False,
-            )
-            value_ranges = list(
-                zip(
-                    starmap(
-                        lambda i, solution: sum(
-                            starmap(
-                                lambda k,v: objectives[i].get(k, 0) * v,
-                                solution.solution.items(),
-                            )
-                        ),
-                        enumerate(minimized_solutions)
-                    ),
-                    starmap(
-                        lambda i, solution: sum(
-                            starmap(
-                                lambda k,v: objectives[i].get(k, 0) * v,
-                                solution.solution.items(),
-                            )
-                        ),
-                        enumerate(maximized_solutions)
-                    )
-                )
-            )
-            for i, prop_value_range in enumerate(zip(dynamic_schema_properties[composite.ptype], value_ranges)):
-                prop, value_range = prop_value_range
-                schema_property = database_model.database_schema.properties[prop]
-                reversed_precalc = dict(dict(sorted(objectives_precalculated[i].items(), key=lambda x: x[1][1])).values())
-                new_value_range = [value_range[0], value_range[1]]
-                if schema_property.dtype == schema_models.SchemaPropertyDType.string:
-                    for j in range(2):
-                        current_value = value_range[j]
-                        for k, v in reversed_precalc.items():
-                            if current_value == v:
-                                new_value_range[j] = k
-                                del reversed_precalc[k]
-                                break
-                    filtered_composites[composite_id].properties[prop] = typed_models.DynamicValue(**{'min': new_value_range[0], 'max': new_value_range[1]})
-                else:
-                    filtered_composites[composite_id].properties[prop] = typed_models.DynamicValue(**{'min': value_range[0], 'max': value_range[1]})
 
     return filtered_composites
 

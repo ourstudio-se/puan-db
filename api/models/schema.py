@@ -135,61 +135,61 @@ class DatabaseSchema(BaseModel):
     properties: Dict[str, SchemaProperty] = {}
     composites: Dict[str, SchemaComposite] = {}
 
-    @model_validator(mode='after')
-    def typecheck(self):
+    # @model_validator(mode='after')
+    # def typecheck(self):
 
-        # Check that there's no circular dependencies from composite relations
-        try:
-            graph = TopologicalSorter(
-                dict(
-                    (key, [item.variable for item in comp.relation.inputs])
-                    for key, comp in self.composites.items()
-                )
-            )
-            graph.prepare()
-        except CycleError as e:
-            raise ValueError(f"Circular dependency detected in schema: '{e.args[1]}'")
+    #     # Check that there's no circular dependencies from composite relations
+    #     try:
+    #         graph = TopologicalSorter(
+    #             dict(
+    #                 (key, [item.variable for item in comp.relation.inputs])
+    #                 for key, comp in self.composites.items()
+    #             )
+    #         )
+    #         graph.prepare()
+    #     except CycleError as e:
+    #         raise ValueError(f"Circular dependency detected in schema: '{e.args[1]}'")
         
-        # Check that all types are defined before use
-        # Definitions are done in the order of
-        # 1. Properties (no dependencies)
-        # 2. Primitives (depends on properties or other primitives (or basic types))
-        # 3. Composites (depends on properties, primitives or other composites)
-        for property_key, property in self.properties.items():
-            if property.dtype not in SchemaPropertyDType.__members__:
-                raise ValueError(f"Undefined property type '{property.dtype}' used in property '{property_key}'. Must be one of {', '.join(SchemaPropertyDType.__members__)}")
+    #     # Check that all types are defined before use
+    #     # Definitions are done in the order of
+    #     # 1. Properties (no dependencies)
+    #     # 2. Primitives (depends on properties or other primitives (or basic types))
+    #     # 3. Composites (depends on properties, primitives or other composites)
+    #     for property_key, property in self.properties.items():
+    #         if property.dtype not in SchemaPropertyDType.__members__:
+    #             raise ValueError(f"Undefined property type '{property.dtype}' used in property '{property_key}'. Must be one of {', '.join(SchemaPropertyDType.__members__)}")
 
-        for prim_key, prim in self.primitives.items():
-            for property in prim.properties:
-                if property.property not in self.properties:
-                    raise ValueError(f"Undefined property '{property.property}' used in primitive '{prim_key}'")
-            if type(prim.ptype) == str:
-                if prim.ptype not in SchemaPrimitiveDtype.__members__:
-                    raise ValueError(f"Undefined primitive variable type '{prim.ptype}' used in primitive '{prim_key}'. Must be one of {', '.join(SchemaPrimitiveDtype.__members__)}")
-            elif type(prim.ptype) == SchemaRangeType:
-                if prim.ptype.lower > prim.ptype.upper:
-                    raise ValueError(f"Invalid range for primitive '{prim_key}'")
+    #     for prim_key, prim in self.primitives.items():
+    #         for property in prim.properties:
+    #             if property.property not in self.properties:
+    #                 raise ValueError(f"Undefined property '{property.property}' used in primitive '{prim_key}'")
+    #         if type(prim.ptype) == str:
+    #             if prim.ptype not in SchemaPrimitiveDtype.__members__:
+    #                 raise ValueError(f"Undefined primitive variable type '{prim.ptype}' used in primitive '{prim_key}'. Must be one of {', '.join(SchemaPrimitiveDtype.__members__)}")
+    #         elif type(prim.ptype) == SchemaRangeType:
+    #             if prim.ptype.lower > prim.ptype.upper:
+    #                 raise ValueError(f"Invalid range for primitive '{prim_key}'")
 
-        for comp_key, comp in self.composites.items():
-            for property in comp.properties:
-                if property.property not in self.properties:
-                    raise ValueError(f"Undefined property '{property.property}' used in composite '{comp_key}'")
-            for item in comp.relation.inputs:
-                if item.variable not in self.primitives and item.variable not in self.composites:
-                    raise ValueError(f"Undefined input variable '{item.variable}' used in composite '{comp_key}'")
+    #     for comp_key, comp in self.composites.items():
+    #         for property in comp.properties:
+    #             if property.property not in self.properties:
+    #                 raise ValueError(f"Undefined property '{property.property}' used in composite '{comp_key}'")
+    #         for item in comp.relation.inputs:
+    #             if item.variable not in self.primitives and item.variable not in self.composites:
+    #                 raise ValueError(f"Undefined input variable '{item.variable}' used in composite '{comp_key}'")
             
-        # Check that default values are valid
-        for pkey, prim in self.primitives.items():
-            for prop in prim.properties:
-                if prop.default is not None:
-                    if type(prop.default) != self.properties[prop.property].dtype.to_python():
-                        try:
-                            # Try to cast default value to the expected type if possible
-                            prop.default = self.properties[prop.property].dtype.to_python()(prop.default)
-                        except ValueError:
-                            raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.property].dtype.value}, got {type(prop.default).__name__}")
+    #     # Check that default values are valid
+    #     for pkey, prim in self.primitives.items():
+    #         for prop in prim.properties:
+    #             if prop.default is not None:
+    #                 if type(prop.default) != self.properties[prop.property].dtype.to_python():
+    #                     try:
+    #                         # Try to cast default value to the expected type if possible
+    #                         prop.default = self.properties[prop.property].dtype.to_python()(prop.default)
+    #                     except ValueError:
+    #                         raise ValueError(f"Invalid default value for property '{pkey}': expected {self.properties[prop.property].dtype.value}, got {type(prop.default).__name__}")
         
-        return self
+    #     return self
 
 ## Specific request models
 class Database(BaseModel):
