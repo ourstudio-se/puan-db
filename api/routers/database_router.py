@@ -1,7 +1,6 @@
 import logging
 import api.models.schema as schema_models
 import api.models.typed_model as typed_models
-import api.models.query as query_models
 import api.models.database_search as database_search
 import api.models.untyped_model as untyped_models
 
@@ -9,7 +8,7 @@ from api.settings import EnvironmentVariables
 from api.storage.databases import *
 
 from pldag import PLDAG
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from itertools import starmap
 from typing import List, Dict, Optional
 
@@ -47,9 +46,10 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
             float: lambda x: x,
             str: lambda x: sum(ord(char) / (256 ** (i + 1)) for i, char in enumerate(x)),
             bool: lambda x: float(x),
-            typed_models.DynamicValue: lambda _: 0
+            typed_models.DynamicValue: lambda _: 0,
+            None.__class__: lambda _: 0,
         }
-        model = database_model.to_pldag()
+        model, root = database_model.to_pldag()
         data = {**database_model.data.primitives, **database_model.data.composites}
         for composite_id, composite in filter(
             lambda x: x[1].ptype in dynamic_schema_properties, 
@@ -63,7 +63,10 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                         starmap(
                             lambda variable, value: (
                                 variable, 
-                                (value, value_resolver[type(value)](value))
+                                (
+                                    value, 
+                                    value_resolver[type(value)](value) if variable in sub_model.columns else 0
+                                )
                             ),
                             map(
                                 lambda variable: (
@@ -71,8 +74,8 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                                     getattr(data.get(variable, {}), 'properties', {}).get(prop, 0)
                                 ),
                                 map(
-                                    lambda column: str(sub_model.id_to_alias(column) or column),
-                                    sub_model.columns
+                                    lambda column: str(model.id_to_alias(column) or column),
+                                    model.columns
                                 )
                             )
                         )
@@ -84,25 +87,29 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                 map(
                     lambda d: dict(
                         starmap(
-                            lambda k,v: (k, v[1]),
+                            lambda k,v: (model.id_from_alias(k) or k, v[1]),
                             d.items()
                         )
                     ),
                     objectives_precalculated
                 )
             )
-            maximized_solutions = await env.solver.solve(
-                model=sub_model,
-                assume={model_composite_id: 1+1j},
-                objectives=objectives, 
-                maximize=True,
-            )
-            minimized_solutions = await env.solver.solve(
-                model=sub_model,
-                assume={model_composite_id: 1+1j},
-                objectives=objectives, 
-                maximize=False,
-            )
+            try:
+                maximized_solutions = await env.solver.solve(
+                    model=model,
+                    assume=dict(filter(lambda k: k[0] is not None, {model_composite_id: 1+1j, root: 1+1j}.items())),
+                    objectives=objectives, 
+                    maximize=True,
+                )
+                minimized_solutions = await env.solver.solve(
+                    model=model,
+                    assume=dict(filter(lambda k: k[0] is not None, {model_composite_id: 1+1j, root: 1+1j}.items())),
+                    objectives=objectives, 
+                    maximize=False,
+                )
+            except Exception as e:
+                logger.error(f"Error resolving dynamic properties: {str(e)}")
+                continue
             value_ranges = list(
                 zip(
                     starmap(
@@ -136,7 +143,6 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                         for k, v in reversed_precalc.items():
                             if current_value == v:
                                 new_value_range[j] = k
-                                del reversed_precalc[k]
                                 break
                     database_model.data.composites[composite_id].properties[prop] = typed_models.DynamicValue(**{'min': new_value_range[0], 'max': new_value_range[1]})
                 else:
@@ -198,7 +204,10 @@ async def get_database(
         raise HTTPException(status_code=404, detail="Database has no data")
 
     # Resolve dynamic properties
-    await resolve_dynamic_properties(database_model)    
+    try:
+        await resolve_dynamic_properties(database_model)
+    except Exception as e:
+        logger.error(f"Error resolving dynamic properties: {str(e)}")
 
     return database_model.sorted()
 
@@ -368,7 +377,7 @@ async def delete_schema_property(
         raise HTTPException(status_code=404, detail="Property not found")
     
     del database_model.database_schema.properties[id]
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.delete_by_schema_property(id))
     return schema_models.RequestOk(message=f"Property deleted")
 
 @router.delete("/databases/{database}/schema/primitives/{id}", response_model=schema_models.RequestOk)
@@ -385,7 +394,7 @@ async def delete_schema_primitive(
         raise HTTPException(status_code=404, detail="Primitive not found")
     
     del database_model.database_schema.primitives[id]
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.delete_by_schema_id([id]))
     return schema_models.RequestOk(message=f"Primitive deleted")
 
 @router.delete("/databases/{database}/schema/composites/{id}", response_model=schema_models.RequestOk)
@@ -402,7 +411,7 @@ async def delete_schema_composite(
         raise HTTPException(status_code=404, detail="Composite not found")
     
     del database_model.database_schema.composites[id]
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.delete_by_schema_id([id]))
     return schema_models.RequestOk(message=f"Composite deleted")
 
 # ################################################################################################
@@ -419,7 +428,10 @@ async def get_data(database: str, model_storage: ModelStorage = Depends(env.get_
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    await resolve_dynamic_properties(database_model)
+    try:
+        await resolve_dynamic_properties(database_model)
+    except Exception as e:
+        logger.error(f"Error resolving dynamic properties: {str(e)}")
     return database_model.data.sorted()
 
 @router.patch("/databases/{database}/data", response_model=typed_models.SchemaData)
@@ -474,7 +486,10 @@ async def get_data_composites(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    await resolve_dynamic_properties(database_model)
+    try:
+        await resolve_dynamic_properties(database_model)
+    except Exception as e:
+        logger.error(f"Error resolving dynamic properties: {str(e)}")
     filtered_composites = dict(
         filter(
             lambda p: (ptype is None) or (p[1].ptype == ptype),
@@ -583,96 +598,108 @@ async def delete_data_composite(
 # ---------------------------------- CALCULATIONS [START] -------------------------------------#
 ################################################################################################
 
-@router.post(
-    "/databases/{database}/evaluate",
-    description="Evaluate a combination in database {database}",
-    response_model=database_search.DatabaseSearchResponse,
-)
-async def evaluate(
-    database: str,
-    combination: untyped_models.EvaluateRequest,
-    model_storage: ModelStorage = Depends(env.get_model_storage),
-):
-    if not model_storage.exists(database):
-        raise HTTPException(status_code=404, detail="Database not found")
-    
-    # Get data from database and convert it to a PLDAG model
-    model: typed_models.DatabaseModel = model_storage.get(database)
-    pldag_model = model.to_pldag()
-
-    # Evaluate the combination
-    evaluated = pldag_model.propagate(combination.to_complex())
-
 # @router.post(
-#     "/databases/{database}/search",
-#     description="Search for a combination in database {database}",
-#     response_model=database_search.DatabaseSearchResponse,
+#     "/databases/{database}/evaluate",
+#     description="Evaluate a combination in database {database}",
+#     response_model=database_search.DatabaseSearchSolution,
 # )
-# async def search(
-#     database: str, 
-#     query: database_search.DatabaseSearchRequest = Body(...), 
+# async def evaluate(
+#     database: str,
+#     combination: untyped_models.EvaluateRequest,
 #     model_storage: ModelStorage = Depends(env.get_model_storage),
-#     schema_storage: SchemaStorage = Depends(get_schema_storage)
 # ):
-#     if not schema_storage.exists(database):
-#         raise HTTPException(status_code=404, detail="Database not found")
-
-#     database_schema: schema_models.Database = schema_storage.get(database)
-
 #     if not model_storage.exists(database):
-#         raise HTTPException(status_code=404, detail="Database has no data")
+#         raise HTTPException(status_code=404, detail="Database not found")
     
-#     # Get data from database
+#     # Get data from database and convert it to a PLDAG model
 #     model: typed_models.DatabaseModel = model_storage.get(database)
-
-#     # Append input data propositions to the model
-#     if suchthat := query.suchthat:
-#         if suchthat.assume.data is not None:
-#             model = model.merge_data(suchthat.assume.data)
-
-#     # Construct a pldag model from the data model
-#     pldag_model: PLDAG = model.to_pldag()
-
-#     # Construct the assume ID from suchthat data
-#     assume = {}
-#     if suchthat := query.suchthat:
-#         assume_id = pldag_model.id_from_alias(suchthat.assume.return_)
-#         if assume_id is None:
-#             raise HTTPException(status_code=400, detail=f"Return proposition '{suchthat.assume.return_}' not found in model")
-#         assume[assume_id] = complex(suchthat.to_equal.lower, suchthat.to_equal.upper)
-
-#     try:
-#         solutions = env.solver.solve(
-#             model=pldag_model,
-#             assume=assume,
-#             objectives=query.objectives_dict(model), 
-#             maximize=query.direction == "maximize",
-#         )
-#     except Exception as e:
-#         logger.error(f"Solver error: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Solver error. Please check logs.")
+#     pldag_model, _ = model.to_pldag()
 
 #     return database_search.DatabaseSearchResponse.from_untyped_solutions(
 #         solutions=[
 #             untyped_models.SolutionResponse(
 #                 solution=dict(
 #                     starmap(
-#                         lambda k,v: (
+#                         lambda k, v: (
 #                             pldag_model.id_to_alias(k) or k,
 #                             v
 #                         ),
 #                         filter(
 #                             lambda x: not pldag_model._svec[pldag_model._imap[x[0]]],
-#                             solution.solution.items()
+#                             pldag_model.propagate(combination.to_complex()).items()
 #                         ),
 #                     )
 #                 ),
-#                 error=solution.error
-#             ) for solution in solutions
-#         ],
+#                 error=None
+#             )
+#         ], 
 #         model=model,
-#         schema=database_schema.database_schema
-#     )
+#         exclude_zero=False
+#     ).solutions[0]
+
+@router.post(
+    "/databases/{database}/search",
+    description="Search for a combination in database {database}",
+    response_model=database_search.DatabaseSearchResponse,
+)
+async def search(
+    database: str, 
+    query: database_search.DatabaseSearchRequest = Body(...), 
+    model_storage: ModelStorage = Depends(env.get_model_storage),
+):
+    if not model_storage.exists(database):
+        raise HTTPException(status_code=404, detail="Database has no data")
+    
+    # Get data from database
+    model: typed_models.DatabaseModel = model_storage.get(database)
+
+    # Append input data propositions to the model
+    if suchthat := query.suchthat:
+        if suchthat.assume.data is not None:
+            model = model.merge_data(suchthat.assume.data)
+
+    # Construct a pldag model from the data model
+    pldag_model, root = model.to_pldag()
+
+    # Construct the assume ID from suchthat data
+    assume = {root: 1+1j}
+    if suchthat := query.suchthat:
+        assume_id = pldag_model.id_from_alias(suchthat.assume.return_)
+        if assume_id is None:
+            raise HTTPException(status_code=400, detail=f"Return proposition '{suchthat.assume.return_}' not found in model")
+        assume[assume_id] = complex(suchthat.to_equal.lower, suchthat.to_equal.upper)
+
+    try:
+        solutions = await env.solver.solve(
+            model=pldag_model,
+            assume=assume,
+            objectives=query.objectives_dict(model), 
+            maximize=query.direction == "maximize",
+        )
+    except Exception as e:
+        logger.error(f"Solver error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Solver error. Please check logs.")
+
+    return database_search.DatabaseSearchResponse.from_untyped_solutions(
+        solutions=[
+            untyped_models.SolutionResponse(
+                solution=dict(
+                    starmap(
+                        lambda k,v: (
+                            pldag_model.id_to_alias(k) or k,
+                            v
+                        ),
+                        filter(
+                            lambda x: not pldag_model._svec[pldag_model._imap[x[0]]],
+                            solution.solution.items()
+                        ),
+                    )
+                ),
+                error=solution.error
+            ) for solution in solutions
+        ],
+        model=model
+    )
 
 ################################################################################################
 # ----------------------------------- CALCULATIONS [END] --------------------------------------#

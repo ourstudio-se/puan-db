@@ -210,3 +210,4 @@ puan/
 *.puan
 db/
 docker-compose.yml
+*.sh

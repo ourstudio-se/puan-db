@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Dict, Union, List, Optional
+from typing import Dict, Union, List, Optional, Tuple
 from pldag import PLDAG, CompilationSetting
 
 import api.models.schema as schema_models
@@ -51,7 +51,9 @@ class Primitive(BaseModel):
                 if schema_property.property not in self.properties:
                     continue
                 node_property = self.properties[schema_property.property]
-                if not isinstance(node_property, type_map[schema_property_base.dtype]):
+
+                # Check that the property is either dynamic or of the correct type
+                if not (isinstance(node_property, type_map[schema_property_base.dtype]) or isinstance(node_property, DynamicValue)):
                     errors.append(f"Property '{schema_property.property}' for '{id}' is not of type {schema_property_base.dtype.value}")
 
         return errors
@@ -119,7 +121,6 @@ class Composite(Primitive):
 
     # Composite specific properties
     definition: Definition = Definition.composite
-    dynamic_properties: Dict[str, DynamicValue] = {}
     inputs: List[str]
 
 CompPrimitive = Union[Composite, Primitive]
@@ -214,7 +215,7 @@ class DatabaseModel(BaseModel):
         for _id, composite in self.data.composites.items():
             for argument in composite.inputs:
                 if not argument in model_data:
-                    errors.add_error(_id, f"Argument '{argument}' is not defined")
+                    errors.add_error(_id, f"Input '{argument}' is not defined")
         
         # Check each proposition against the schema
         for id, proposition in model_data.items():
@@ -248,25 +249,74 @@ class DatabaseModel(BaseModel):
     
     def update(self, propositions: Dict[str, CompPrimitive]) -> "DatabaseModel":
         """Updates propositions by id and returns a Model with the updated proposition"""
-        new_primitives = {**self.data.primitives, **{p_id: p for p_id, p in propositions.items() if p.definition == Definition.primitive}}
-        new_composites = {**self.data.composites, **{p_id: p for p_id, p in propositions.items() if p.definition == Definition.composite}}
         return DatabaseModel(
             database_schema=self.database_schema,
             data=SchemaData(
-                primitives=new_primitives,
-                composites=new_composites
+                primitives={**self.data.primitives, **{p_id: p for p_id, p in propositions.items() if p.definition == Definition.primitive}},
+                composites={**self.data.composites, **{p_id: p for p_id, p in propositions.items() if p.definition == Definition.composite}}
             )
         )
     
     def delete(self, ids: List[str]) -> "DatabaseModel":
         """Deletes propositions by id and returns a new Model without the proposition"""
-        new_primitives = {p_id: p for p_id, p in self.data.primitives.items() if p_id not in ids}
-        new_composites = {p_id: p for p_id, p in self.data.composites.items() if p_id not in ids}
         return DatabaseModel(
             database_schema=self.database_schema,
             data=SchemaData(
-                primitives=new_primitives,
-                composites=new_composites
+                primitives={p_id: p for p_id, p in self.data.primitives.items() if p_id not in ids},
+                composites={p_id: p for p_id, p in self.data.composites.items() if p_id not in ids}
+            )
+        )
+    
+    def delete_by_schema_id(self, schema_ids: List[str]) -> "DatabaseModel":
+        """Deletes propositions by schema id and returns a new Model without the proposition"""
+        return DatabaseModel(
+            database_schema=self.database_schema,
+            data=SchemaData(
+                primitives={p_id: p for p_id, p in self.data.primitives.items() if p.ptype not in schema_ids},
+                composites={p_id: p for p_id, p in self.data.composites.items() if p.ptype not in schema_ids}
+            )
+        )
+    
+    def delete_by_schema_property(self, schema_property: str) -> "DatabaseModel":
+        """Deletes properties from propositions and returns a new Model without the property"""
+        return DatabaseModel(
+            database_schema=schema_models.DatabaseSchema(
+                primitives={
+                    p_id: schema_models.SchemaPrimitive(
+                        ptype=p.ptype,
+                        quantifier=p.quantifier,
+                        properties=[prop for prop in p.properties if prop.property != schema_property],
+                        description=p.description
+                    )
+                    for p_id, p in self.database_schema.primitives.items()
+                },
+                composites={
+                    p_id: schema_models.SchemaComposite(
+                        relation=p.relation,
+                        properties=[prop for prop in p.properties if prop.property != schema_property],
+                        quantifier=p.quantifier,
+                        description=p.description
+                    )
+                    for p_id, p in self.database_schema.composites.items()
+                },
+                properties=self.database_schema.properties,
+            ),
+            data=SchemaData(
+                primitives={
+                    p_id: Primitive(
+                        ptype=p.ptype,
+                        properties={prop: value for prop, value in p.properties.items() if prop != schema_property}
+                    )
+                    for p_id, p in self.data.primitives.items()
+                },
+                composites={
+                    p_id: Composite(
+                        ptype=p.ptype,
+                        properties={prop: value for prop, value in p.properties.items() if prop != schema_property},
+                        inputs=p.inputs
+                    )
+                    for p_id, p in self.data.composites.items()
+                }
             )
         )
     
@@ -328,7 +378,10 @@ class DatabaseModel(BaseModel):
         # Filter the propositions based on the query conditions
         return {id: item for id, item in self.propositions.items() if evaluate_query(item, query.conditions)}
     
-    def to_pldag(self) -> PLDAG:
+    def to_pldag(self) -> Tuple[PLDAG, Optional[str]]:
+        """
+            Returns the PLDAG model along with a root ID that needs to be assumed true.
+        """
 
         # We currently have max and min integer set here
         MAX_INT = 2**31
@@ -347,6 +400,36 @@ class DatabaseModel(BaseModel):
             elif type(primitive_schema.ptype) == schema_models.SchemaRangeType:
                 model.set_primitive(primitive_id, complex(primitive_schema.ptype.lower, primitive_schema.ptype.upper))
 
+        # Set quantifiers for primitives
+        forced_composites = []
+        for schema_primitive_id, schema_primitive in filter(
+            lambda x: x[1].quantifier != schema_models.SchemaQuantifier.zero_or_more, 
+            self.database_schema.primitives.items()
+        ):
+            primitive_ids = list(
+                filter(
+                    lambda x: self.data.primitives[x].ptype == schema_primitive_id,
+                    self.data.primitives.keys()
+                )
+            )
+            if schema_primitive.quantifier == schema_models.SchemaQuantifier.one_or_more:
+                forced_composites.append(
+                    model.set_or(primitive_ids)
+                )
+            elif schema_primitive.quantifier == schema_models.SchemaQuantifier.zero_or_one:
+                forced_composites.append(
+                    model.set_atmost(
+                        primitive_ids,
+                        value=1
+                    )
+                )
+            elif type(schema_primitive.quantifier) == int:
+                forced_composites.append(
+                    model.set_equal(
+                        primitive_ids,
+                        value=schema_primitive.quantifier
+                    )
+                )
 
         # Keep track of the arguments and their ID mapping
         argument_id_map = {}
@@ -403,10 +486,13 @@ class DatabaseModel(BaseModel):
                 raise ValueError(f"Unsupported composite operator: {composite_schema.relation.operator}")
 
         # Compile the model as it is ready
+        # Set the forced composites first
+        root = model.set_and(forced_composites) if forced_composites else None
+
         # This may raise an exception if the model is not valid
         model.compile()
 
-        return model
+        return model, root
     
     def update_properties(self, proposition: CompPrimitive) -> CompPrimitive:
         for property_id in proposition.properties:

@@ -91,7 +91,6 @@ class DatabaseSearchResponse(BaseModel):
     def from_untyped_solutions(
         solutions: List[untyped_model.SolutionResponse], 
         model: typed_model.DatabaseModel,
-        schema: schema_model.DatabaseSchema,
         exclude_zero: bool = True
     ) -> "DatabaseSearchResponse":
         
@@ -154,49 +153,50 @@ class DatabaseSearchResponse(BaseModel):
                     if composite_model is None:
                         raise ValueError(f"Composite '{sol_key}' not found in model")
                     
-                    composite_schema = schema.composites.get(composite_model.ptype)
+                    composite_schema = model.database_schema.composites.get(composite_model.ptype)
                     if composite_schema is None:
                         raise ValueError(f"Composite '{sol_key}' not found in schema")
                     
-                    new_aggregate_properties = {}
-                    if composite_schema.aggregates:
+                    # new_aggregate_properties = {}
+                    # if composite_schema.aggregates:
                         
-                        for aggregate_key, aggregate in composite_schema.aggregates.items():
+                    #     for aggregate_key, aggregate in composite_schema.aggregates.items():
                             
-                            # We start by creating a dictionery with the values used for the aggregate
-                            aggregate_values = dict(
-                                starmap(
-                                    lambda proposition_id, proposition: (
-                                        proposition_id, 
-                                        proposition.properties.get(
-                                            aggregate.source, 
-                                            0 # Default value should come from the schema in the future
-                                        )
-                                    ),
-                                    model.propositions.items()
-                                )
-                            )
+                    #         # We start by creating a dictionery with the values used for the aggregate
+                    #         aggregate_values = dict(
+                    #             starmap(
+                    #                 lambda proposition_id, proposition: (
+                    #                     proposition_id, 
+                    #                     proposition.properties.get(
+                    #                         aggregate.source, 
+                    #                         0 # Default value should come from the schema in the future
+                    #                     )
+                    #                 ),
+                    #                 model.propositions.items()
+                    #             )
+                    #         )
 
-                            # Just sum each dependency bound multiplied with value supplied in data
-                            if aggregate.type == schema_model.SchemaAggregateType.sum_:
-                                new_aggregate_properties[aggregate_key] = sum(
-                                    map(
-                                        aggregate_values.get,
-                                        transitive_deps[sol_key]
-                                    )
-                                ) + solution.solution[sol_key] * aggregate_values.get(sol_key, 0.0)
-                            else:
-                                raise ValueError(f"Aggregate type '{aggregate.type}' not yet implemented")
+                    #         # Just sum each dependency bound multiplied with value supplied in data
+                    #         if aggregate.type == schema_model.SchemaAggregateType.sum_:
+                    #             new_aggregate_properties[aggregate_key] = sum(
+                    #                 map(
+                    #                     aggregate_values.get,
+                    #                     transitive_deps[sol_key]
+                    #                 )
+                    #             ) + solution.solution[sol_key] * aggregate_values.get(sol_key, 0.0)
+                    #         else:
+                    #             raise ValueError(f"Aggregate type '{aggregate.type}' not yet implemented")
                     
-                    composite_model.properties.update(new_aggregate_properties)
+                    # composite_model.properties.update(new_aggregate_properties)
                     new_solution[sol_key] = DatabaseSearchCompositeSolutionVariable(
                         variable=composite_model,
                         value=sol_val,
                     )
-
-                else:
-                    raise ValueError(f"Unknown proposition '{sol_key}' in solution")
                 
-            new_solutions.append(DatabaseSearchSolution(solution=new_solution))
+            new_solutions.append(
+                DatabaseSearchSolution(
+                    solution=dict(sorted(new_solution.items(), key=lambda x: x[1].variable.ptype))
+                )
+            )
 
         return DatabaseSearchResponse(solutions=new_solutions)
