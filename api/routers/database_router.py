@@ -237,7 +237,7 @@ async def update_database_schema(
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     database_model.database_schema = schema
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.update_data_from_schema())
     return schema.sorted()
 
 @router.get("/databases/{database}/schema/properties", response_model=Dict[str, schema_models.SchemaProperty])
@@ -330,7 +330,7 @@ async def update_schema_property(
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     database_model.database_schema.properties[id] = property
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.update_data_from_schema())
     return property
 
 @router.patch("/databases/{database}/schema/primitives/{id}", response_model=schema_models.SchemaPrimitive)
@@ -345,7 +345,7 @@ async def update_schema_primitive(
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     database_model.database_schema.primitives[id] = primitive
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.update_data_from_schema())
     return primitive
 
 @router.patch("/databases/{database}/schema/composites/{id}", response_model=schema_models.SchemaComposite)
@@ -360,7 +360,7 @@ async def update_schema_composite(
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     database_model.database_schema.composites[id] = composite
-    model_storage.set(database, database_model)
+    model_storage.set(database, database_model.update_data_from_schema())
     return composite
 
 @router.delete("/databases/{database}/schema/properties/{id}", response_model=schema_models.RequestOk)
@@ -662,9 +662,9 @@ async def search(
     pldag_model, root = model.to_pldag()
 
     # Construct the assume ID from suchthat data
-    assume = {root: 1+1j}
+    assume = {root: 1+1j} if root is not None else {}
     if suchthat := query.suchthat:
-        assume_id = pldag_model.id_from_alias(suchthat.assume.return_)
+        assume_id = pldag_model.id_from_alias(suchthat.assume.return_) or (suchthat.assume.return_ if suchthat.assume.return_ in model.data.primitives else None)
         if assume_id is None:
             raise HTTPException(status_code=400, detail=f"Return proposition '{suchthat.assume.return_}' not found in model")
         assume[assume_id] = complex(suchthat.to_equal.lower, suchthat.to_equal.upper)
@@ -700,6 +700,7 @@ async def search(
         ],
         model=model
     )
+
 
 ################################################################################################
 # ----------------------------------- CALCULATIONS [END] --------------------------------------#

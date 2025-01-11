@@ -503,6 +503,32 @@ class DatabaseModel(BaseModel):
                 continue
         return proposition
     
+    def update_data_from_schema(self) -> "DatabaseModel":
+        """
+            Updates the data properties based on the schema properties.
+            If property is not found in the schema, it is removed from data.
+        """
+        return DatabaseModel(
+            database_schema=self.database_schema,
+            data=SchemaData(
+                primitives={
+                    p_id: Primitive(
+                        ptype=p.ptype,
+                        properties={prop: value for prop, value in p.properties.items() if prop in map(lambda sp: sp.property, self.database_schema.primitives[p.ptype].properties)}
+                    )
+                    for p_id, p in self.data.primitives.items()
+                },
+                composites={
+                    p_id: Composite(
+                        ptype=p.ptype,
+                        properties={prop: value for prop, value in p.properties.items() if prop in map(lambda sp: sp.property, self.database_schema.composites[p.ptype].properties)},
+                        inputs=p.inputs,
+                    )
+                    for p_id, p in self.data.composites.items()
+                }
+            )
+        )
+    
 class SchemaValidationResponse(BaseModel):
 
     errors: Dict[str, List[str]] = {}
