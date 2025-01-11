@@ -9,7 +9,7 @@ from api.storage.databases import *
 
 from pldag import PLDAG
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
-from itertools import starmap
+from itertools import starmap, groupby
 from typing import List, Dict, Optional
 
 router = APIRouter()
@@ -448,7 +448,7 @@ async def update_data(
     model_storage.set(database, database_model)
     return data.sorted()
 
-@router.get("/databases/{database}/data/errors", response_model=typed_models.SchemaValidationResponse)
+@router.get("/databases/{database}/data/errors", response_model=dict)
 async def get_data_errors(
     database: str, 
     model_storage: ModelStorage = Depends(env.get_model_storage),    
@@ -457,7 +457,8 @@ async def get_data_errors(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
-    return database_model.validate_all()
+    validation = database_model.validate_all()
+    return {k: dict([v for _, v in group]) for k, group in groupby(sorted(zip(map(lambda k: database_model.propositions[k].ptype, validation.errors), validation.errors.items())), key=lambda x: x[0])}
 
 @router.get("/databases/{database}/data/primitives", response_model=Dict[str, typed_models.Primitive])
 async def get_data_primitives(

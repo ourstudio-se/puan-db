@@ -531,7 +531,7 @@ class DatabaseModel(BaseModel):
     
 class SchemaValidationResponse(BaseModel):
 
-    errors: Dict[str, List[str]] = {}
+    errors: Dict[str, Dict[str, List[str]]] = {}
 
     def add_error(self, key: str, error: str):
         self.errors.setdefault(key, [])

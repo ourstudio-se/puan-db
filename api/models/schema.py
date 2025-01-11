@@ -135,6 +135,10 @@ class DatabaseSchema(BaseModel):
     properties: Dict[str, SchemaProperty] = {}
     composites: Dict[str, SchemaComposite] = {}
 
+    @property
+    def propositions(self) -> Dict[str, SchemaProposition]:
+        return {**self.primitives, **self.composites}
+
     def sorted(self) -> "DatabaseSchema":
         """Returns the DatabaseSchema but sorted by keys"""
         return DatabaseSchema(
