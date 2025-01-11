@@ -54,24 +54,6 @@ def test_update_data_property():
 
 def test_define_schema():
     
-    schema_models.DatabaseSchema(
-        properties={
-            "a": schema_models.SchemaProperty(
-                dtype=schema_models.SchemaPropertyDType.float
-            )
-        },
-        primitives={
-            "x": schema_models.SchemaPrimitive(
-                ptype=schema_models.SchemaPrimitiveDtype.boolean,
-                properties=[
-                    schema_models.SchemaPropertyReference(
-                        property="a"
-                    )
-                ]
-            )
-        }
-    )
-
     try:
         schema_models.DatabaseSchema(
             primitives={
@@ -85,9 +67,27 @@ def test_define_schema():
                 )
             }
         )
-        assert False
+
+        schema_models.DatabaseSchema(
+            properties={
+                "a": schema_models.SchemaProperty(
+                    dtype=schema_models.SchemaPropertyDType.float
+                )
+            },
+            primitives={
+                "x": schema_models.SchemaPrimitive(
+                    ptype=schema_models.SchemaPrimitiveDtype.boolean,
+                    properties=[
+                        schema_models.SchemaPropertyReference(
+                            property="a"
+                        )
+                    ]
+                )
+            }
+        )
+
     except ValueError:
-        assert True
+        assert False
 
 def test_define_model():
 
