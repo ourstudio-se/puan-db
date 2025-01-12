@@ -7,7 +7,6 @@ import api.models.untyped_model as untyped_models
 from api.settings import EnvironmentVariables
 from api.storage.databases import *
 
-from pldag import PLDAG
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from itertools import starmap, groupby
 from typing import List, Dict, Optional
@@ -49,7 +48,7 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
             typed_models.DynamicValue: lambda _: 0,
             None.__class__: lambda _: 0,
         }
-        model, root = database_model.to_pldag()
+        model = database_model.to_pldag()
         data = {**database_model.data.primitives, **database_model.data.composites}
         for composite_id, composite in filter(
             lambda x: x[1].ptype in dynamic_schema_properties, 
@@ -97,13 +96,13 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
             try:
                 maximized_solutions = await env.solver.solve(
                     model=model,
-                    assume=dict(filter(lambda k: k[0] is not None, {model_composite_id: 1+1j, root: 1+1j}.items())),
+                    assume={model_composite_id: 1+1j},
                     objectives=objectives, 
                     maximize=True,
                 )
                 minimized_solutions = await env.solver.solve(
                     model=model,
-                    assume=dict(filter(lambda k: k[0] is not None, {model_composite_id: 1+1j, root: 1+1j}.items())),
+                    assume={model_composite_id: 1+1j},
                     objectives=objectives, 
                     maximize=False,
                 )
@@ -541,6 +540,9 @@ async def update_data_primitive(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
+    if not primitive.ptype in database_model.database_schema.primitives:
+        raise HTTPException(status_code=400, detail=f"Primitive ptype '{primitive.ptype}' not found in schema")
+
     database_model.data.primitives[id] = database_model.update_properties(primitive)
     model_storage.set(database, database_model)
     return primitive
@@ -556,6 +558,9 @@ async def update_data_composite(
         raise HTTPException(status_code=404, detail="Database not found")
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
+    if not composite.ptype in database_model.database_schema.composites:
+        raise HTTPException(status_code=400, detail=f"Composite ptype '{composite.ptype}' not found in schema")
+    
     database_model.data.composites[id] = database_model.update_properties(composite)
     model_storage.set(database, database_model)
     return composite
@@ -614,7 +619,7 @@ async def delete_data_composite(
     
 #     # Get data from database and convert it to a PLDAG model
 #     model: typed_models.DatabaseModel = model_storage.get(database)
-#     pldag_model, _ = model.to_pldag()
+#     pldag_model = model.to_pldag()
 
 #     return database_search.DatabaseSearchResponse.from_untyped_solutions(
 #         solutions=[
@@ -660,10 +665,10 @@ async def search(
             model = model.merge_data(suchthat.assume.data)
 
     # Construct a pldag model from the data model
-    pldag_model, root = model.to_pldag()
+    pldag_model = model.to_pldag()
 
     # Construct the assume ID from suchthat data
-    assume = {root: 1+1j} if root is not None else {}
+    assume = {}
     if suchthat := query.suchthat:
         assume_id = pldag_model.id_from_alias(suchthat.assume.return_) or (suchthat.assume.return_ if suchthat.assume.return_ in model.data.primitives else None)
         if assume_id is None:

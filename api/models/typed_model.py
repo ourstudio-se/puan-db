@@ -378,7 +378,7 @@ class DatabaseModel(BaseModel):
         # Filter the propositions based on the query conditions
         return {id: item for id, item in self.propositions.items() if evaluate_query(item, query.conditions)}
     
-    def to_pldag(self) -> Tuple[PLDAG, Optional[str]]:
+    def to_pldag(self) -> PLDAG:
         """
             Returns the PLDAG model along with a root ID that needs to be assumed true.
         """
@@ -399,37 +399,6 @@ class DatabaseModel(BaseModel):
                     raise ValueError(f"Unsupported primitive type: {primitive_schema.ptype}")
             elif type(primitive_schema.ptype) == schema_models.SchemaRangeType:
                 model.set_primitive(primitive_id, complex(primitive_schema.ptype.lower, primitive_schema.ptype.upper))
-
-        # Set quantifiers for primitives
-        forced_composites = []
-        for schema_primitive_id, schema_primitive in filter(
-            lambda x: x[1].quantifier != schema_models.SchemaQuantifier.zero_or_more, 
-            self.database_schema.primitives.items()
-        ):
-            primitive_ids = list(
-                filter(
-                    lambda x: self.data.primitives[x].ptype == schema_primitive_id,
-                    self.data.primitives.keys()
-                )
-            )
-            if schema_primitive.quantifier == schema_models.SchemaQuantifier.one_or_more:
-                forced_composites.append(
-                    model.set_or(primitive_ids)
-                )
-            elif schema_primitive.quantifier == schema_models.SchemaQuantifier.zero_or_one:
-                forced_composites.append(
-                    model.set_atmost(
-                        primitive_ids,
-                        value=1
-                    )
-                )
-            elif type(schema_primitive.quantifier) == int:
-                forced_composites.append(
-                    model.set_equal(
-                        primitive_ids,
-                        value=schema_primitive.quantifier
-                    )
-                )
 
         # Keep track of the arguments and their ID mapping
         argument_id_map = {}
@@ -485,14 +454,10 @@ class DatabaseModel(BaseModel):
             else:
                 raise ValueError(f"Unsupported composite operator: {composite_schema.relation.operator}")
 
-        # Compile the model as it is ready
-        # Set the forced composites first
-        root = model.set_and(forced_composites) if forced_composites else None
-
         # This may raise an exception if the model is not valid
         model.compile()
 
-        return model, root
+        return model
     
     def update_properties(self, proposition: CompPrimitive) -> CompPrimitive:
         for property_id in proposition.properties:
