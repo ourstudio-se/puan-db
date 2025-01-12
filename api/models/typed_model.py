@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Dict, Union, List, Optional, Tuple
 from pldag import PLDAG, CompilationSetting
+from graphlib import TopologicalSorter
 
 import api.models.schema as schema_models
 import api.models.query as query_models
@@ -410,8 +411,17 @@ class DatabaseModel(BaseModel):
                     arguments
                 )
             )
+        
+        # To loop in correct order, create a topological sorter for the composites
+        graph = TopologicalSorter(
+            dict(
+                (key, [item for item in comp.inputs])
+                for key, comp in self.data.composites.items()
+            )
+        )
 
-        for composite_id, composite in self.data.composites.items():
+        for composite_id in filter(lambda p: p in self.data.composites, graph.static_order()):
+            composite = self.data.composites[composite_id]
             composite_schema = self.database_schema.composites.get(composite.ptype)
 
             # Switch case for every schema relation operator

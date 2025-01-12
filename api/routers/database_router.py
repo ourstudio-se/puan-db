@@ -147,6 +147,44 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                 else:
                     database_model.data.composites[composite_id].properties[prop] = typed_models.DynamicValue(**{'min': value_range[0], 'max': value_range[1]})
 
+def resolve_composite_inputs(model: typed_models.SchemaData, composite: typed_models.Composite) -> dict:
+    """
+        Recursively resolves the inputs for each composite in the model,
+        from its ID to its composite/primitve.
+    """
+    return {
+        **composite.model_dump(),
+        **{
+            "inputs": {
+                **dict(
+                    map(
+                        lambda inp: (
+                            inp, 
+                            resolve_composite_inputs(
+                                model,
+                                model.composites[inp],
+                            ),
+                        ),
+                        filter(
+                            lambda inp: inp in model.composites,
+                            composite.inputs
+                        )
+                    )
+                ),
+                **dict(
+                    map(
+                        lambda inp: (inp, model.primitives[inp]),
+                        filter(
+                            lambda inp: inp in model.primitives,
+                            composite.inputs
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+
 ################################################################################################
 # --------------------------------- DATABASE OPERATIONS [BEGIN] ---------------------------------#
 ################################################################################################
@@ -476,10 +514,11 @@ async def get_data_primitives(
         )
     )
 
-@router.get("/databases/{database}/data/composites", response_model=Dict[str, typed_models.Composite])
+@router.get("/databases/{database}/data/composites", response_model=dict)
 async def get_data_composites(
     database: str,
     ptype: Optional[str] = Query(None),
+    resolved: Optional[bool] = Query(False),
     model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
@@ -490,6 +529,7 @@ async def get_data_composites(
         await resolve_dynamic_properties(database_model)
     except Exception as e:
         logger.error(f"Error resolving dynamic properties: {str(e)}")
+
     filtered_composites = dict(
         filter(
             lambda p: (ptype is None) or (p[1].ptype == ptype),
@@ -497,7 +537,7 @@ async def get_data_composites(
         )
     )
 
-    return filtered_composites
+    return dict(starmap(lambda c, comp: (c, resolve_composite_inputs(database_model.data, comp)), filtered_composites.items())) if resolved else filtered_composites
 
 @router.get("/databases/{database}/data/primitives/{id}", response_model=typed_models.Primitive)
 async def get_data_primitive(
@@ -514,10 +554,11 @@ async def get_data_primitive(
     
     return database_model.data.primitives[id]
 
-@router.get("/databases/{database}/data/composites/{id}", response_model=typed_models.Composite)
+@router.get("/databases/{database}/data/composites/{id}", response_model=dict)
 async def get_data_composite(
     database: str,
     id: str,
+    resolved: Optional[bool] = Query(False),
     model_storage: ModelStorage = Depends(env.get_model_storage)
 ):
     if not model_storage.exists(database):
@@ -527,7 +568,7 @@ async def get_data_composite(
     if not id in database_model.data.composites:
         raise HTTPException(status_code=404, detail="Composite not found")
     
-    return database_model.data.composites[id]
+    return resolve_composite_inputs(database_model.data, database_model.data.composites[id]) if resolved else database_model.data.composites[id]
 
 @router.patch("/databases/{database}/data/primitives/{id}", response_model=typed_models.Primitive)
 async def update_data_primitive(
@@ -646,7 +687,7 @@ async def delete_data_composite(
 @router.post(
     "/databases/{database}/search",
     description="Search for a combination in database {database}",
-    response_model=database_search.DatabaseSearchResponse,
+    response_model=list,
 )
 async def search(
     database: str, 
@@ -685,6 +726,24 @@ async def search(
     except Exception as e:
         logger.error(f"Solver error: {str(e)}")
         raise HTTPException(status_code=500, detail="Solver error. Please check logs.")
+    
+    return list(
+        map(
+            lambda solution: dict(
+                starmap(
+                    lambda k,v: (
+                        pldag_model.id_to_alias(k) or k,
+                        v
+                    ),
+                    filter(
+                        lambda x: not pldag_model._svec[pldag_model._imap[x[0]]] and x[0] in pldag_model.primitives,
+                        solution.solution.items()
+                    ),
+                )
+            ),
+            solutions
+        )
+    )
 
     return database_search.DatabaseSearchResponse.from_untyped_solutions(
         solutions=[
