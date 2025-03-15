@@ -26,6 +26,7 @@ class DatabaseSearchSuchThat(BaseModel):
     to_equal: untyped_model.Bounds
 
 class DatabaseSearchRequest(BaseModel):
+    variable: str
     objectives: List[DatabaseSearchObjective]
     suchthat: Optional[DatabaseSearchSuchThat] = None
     direction: str = "maximize"

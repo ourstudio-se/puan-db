@@ -73,8 +73,8 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                                     getattr(data.get(variable, {}), 'properties', {}).get(prop, 0)
                                 ),
                                 map(
-                                    lambda column: str(model.id_to_alias(column) or column),
-                                    model.columns
+                                    lambda column: str(sub_model.id_to_alias(column) or column),
+                                    sub_model.columns
                                 )
                             )
                         )
@@ -86,29 +86,30 @@ async def resolve_dynamic_properties(database_model: typed_models.DatabaseModel)
                 map(
                     lambda d: dict(
                         starmap(
-                            lambda k,v: (model.id_from_alias(k) or k, v[1]),
+                            lambda k,v: (sub_model.id_from_alias(k) or k, v[1]),
                             d.items()
                         )
                     ),
                     objectives_precalculated
                 )
             )
-            try:
-                maximized_solutions = await env.solver.solve(
-                    model=model,
-                    assume={model_composite_id: 1+1j},
-                    objectives=objectives, 
-                    maximize=True,
-                )
-                minimized_solutions = await env.solver.solve(
-                    model=model,
-                    assume={model_composite_id: 1+1j},
-                    objectives=objectives, 
-                    maximize=False,
-                )
-            except Exception as e:
-                logger.error(f"Error resolving dynamic properties: {str(e)}")
-                continue
+            maximized_solutions = await env.solver.solve(
+                model=sub_model,
+                assume={model_composite_id: 1+1j},
+                objectives=objectives, 
+                maximize=True,
+            )
+            minimized_solutions = await env.solver.solve(
+                model=sub_model,
+                assume={model_composite_id: 1+1j},
+                objectives=objectives, 
+                maximize=False,
+            )
+
+            if maximized_solutions[0].error is not None:
+                logger.error(f"Error resolving dynamic properties: {maximized_solutions[0].error}")
+                raise ValueError("Error resolving dynamic properties")
+                
             value_ranges = list(
                 zip(
                     starmap(
@@ -184,6 +185,9 @@ def resolve_composite_inputs(model: typed_models.SchemaData, composite: typed_mo
         }
     }
 
+def resolve_composite(model: typed_models.DatabaseModel, composite: typed_models.Composite) -> typed_models.Composite:
+    composite.operator = model.database_schema.composites[composite.ptype].relation.operator.value
+    return composite
 
 ################################################################################################
 # --------------------------------- DATABASE OPERATIONS [BEGIN] ---------------------------------#
@@ -495,6 +499,22 @@ async def get_data_errors(
     
     database_model: typed_models.DatabaseModel = model_storage.get(database)
     validation = database_model.validate_all()
+
+    model = database_model.to_pldag()
+    for composite_id, pldag_composite_id in model._amap.items():
+        try:
+            sub_model = model.sub([pldag_composite_id])
+            solution = await env.solver.solve(
+                model=sub_model,
+                assume={pldag_composite_id: 1+1j},
+                objectives=[{}]
+            )
+            if solution[0].error is not None:
+                validation.errors.setdefault(composite_id, []).append("Could not find a solution")
+        except Exception as e:
+            logger.error(f"Solver error: {str(e)}")
+            validation.errors.setdefault(composite_id, []).append("Could not find a solution")
+
     return {k: dict([v for _, v in group]) for k, group in groupby(sorted(zip(map(lambda k: database_model.propositions[k].ptype, validation.errors), validation.errors.items())), key=lambda x: x[0])}
 
 @router.get("/databases/{database}/data/primitives", response_model=Dict[str, typed_models.Primitive])
@@ -708,17 +728,25 @@ async def search(
     # Construct a pldag model from the data model
     pldag_model = model.to_pldag()
 
-    # Construct the assume ID from suchthat data
-    assume = {}
+    # Sub model for the composite/variable
+    if not query.variable in model.propositions:
+        raise HTTPException(status_code=400, detail=f"Variable '{query.variable}' not found in model")
+    
+    # Sub model for the composite/variable
+    variable_id = pldag_model.id_from_alias(query.variable) or query.variable
+    pldag_sub_model = pldag_model.sub([variable_id])
+
+    # Construct the assume ID from suchthat data, with query.variable locked
+    assume = {variable_id: 1+1j}
     if suchthat := query.suchthat:
-        assume_id = pldag_model.id_from_alias(suchthat.assume.return_) or (suchthat.assume.return_ if suchthat.assume.return_ in model.data.primitives else None)
+        assume_id = pldag_sub_model.id_from_alias(suchthat.assume.return_) or (suchthat.assume.return_ if suchthat.assume.return_ in model.data.primitives else None)
         if assume_id is None:
             raise HTTPException(status_code=400, detail=f"Return proposition '{suchthat.assume.return_}' not found in model")
         assume[assume_id] = complex(suchthat.to_equal.lower, suchthat.to_equal.upper)
 
     try:
         solutions = await env.solver.solve(
-            model=pldag_model,
+            model=pldag_sub_model,
             assume=assume,
             objectives=query.objectives_dict(model), 
             maximize=query.direction == "maximize",

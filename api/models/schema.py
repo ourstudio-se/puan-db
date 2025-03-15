@@ -56,6 +56,7 @@ class SchemaLogicOperator(str, Enum):
     equiv = "equiv"
     geq = "geq"
     leq = "leq"
+    free = "free"
 
 class SchemaValuedOperator(str, Enum):
     atleast = "atleast"

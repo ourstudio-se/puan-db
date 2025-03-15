@@ -51,10 +51,10 @@ class Primitive(BaseModel):
                 # It is ok to be null, or not set here, so if schema property key is not in node properties just continue
                 if schema_property.property not in self.properties:
                     continue
+                
                 node_property = self.properties[schema_property.property]
-
                 # Check that the property is either dynamic or of the correct type
-                if not (isinstance(node_property, type_map[schema_property_base.dtype]) or isinstance(node_property, DynamicValue)):
+                if not (isinstance(node_property, type_map[schema_property_base.dtype]) or schema_property.dynamic is not None):
                     errors.append(f"Property '{schema_property.property}' for '{id}' is not of type {schema_property_base.dtype.value}")
 
         return errors
